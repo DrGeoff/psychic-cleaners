@@ -99,7 +99,7 @@ Equipment (prices documented; slot sizes our defaults):
 
 | Item | Price | Slots | Effect |
 |---|---|---|---|
-| Residue detector | $400 | 1 | Flashes on the map near high-PSI blocks |
+| Residue detector | $400 | 1 | Reveals wisps on the map and makes haunted buildings flash |
 | Spectral lens | $800 | 1 | Makes faint wisps visible while driving |
 | Mascot sensor | $800 | 1 | Advance warning of a Sir Squish rampage |
 | Gummy bait (pack of 5) | $400 | 1 | Diverts Sir Squish when deployed |
@@ -109,6 +109,8 @@ Equipment (prices documented; slot sizes our defaults):
 
 Without the containment rig, full snares must be emptied at the Depot before
 they can be reused; the trip costs game time (and therefore rising PSI).
+Additional spirit snares can be bought mid-game at the Depot at the shop
+price — this is the purchase the bankruptcy rule in 4.7 presupposes.
 
 ### 4.3 City map
 
@@ -247,8 +249,10 @@ generated asset without touching game code.
 - **Core unit tests** (pytest): per-module, seeded RNG, fake clock. Fast — no
   display, no SDL.
 - **Property tests** (Hypothesis): codec round-trip (any name/bankroll encodes
-  → decodes identically; corrupted codes always rejected), economy invariants,
-  PSI monotone under no-action, beam-crossing detection geometry.
+  → decodes identically; a corrupted code is rejected or provably never
+  restores the original bankroll — an 8-bit checksum cannot reject every
+  corruption), economy invariants, loadout capacity invariants, PSI monotone
+  under no-action, beam-crossing detection geometry.
 - **Integration tests**: scripted command sequences driving `core.game`
   through a complete win and a complete loss, asserting on emitted events.
 - **Shell smoke tests**: `SDL_VIDEODRIVER=dummy`, `SDL_AUDIODRIVER=dummy` —
