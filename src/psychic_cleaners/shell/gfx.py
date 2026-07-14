@@ -110,9 +110,35 @@ def _build_wisp_faint() -> pygame.Surface:
     return surf
 
 
+def _build_smudge() -> pygame.Surface:
+    surf = pygame.Surface((32, 32), pygame.SRCALPHA)
+    pygame.draw.circle(surf, (146, 188, 92), (16, 19), 12)  # greasy body
+    pygame.draw.circle(surf, (186, 222, 124), (13, 15), 8)  # highlight
+    pygame.draw.circle(surf, (32, 32, 32), (12, 14), 2)  # eyes
+    pygame.draw.circle(surf, (32, 32, 32), (20, 14), 2)
+    return surf
+
+
+def _build_cleaner_slimed() -> pygame.Surface:
+    surf = _build_cleaner()  # fresh surface from the module-level cleaner builder
+    tint = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+    tint.fill((110, 210, 110, 255))
+    surf.blit(tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)  # green tint
+    return surf
+
+
+def _build_snare() -> pygame.Surface:
+    surf = pygame.Surface((24, 12), pygame.SRCALPHA)
+    pygame.draw.rect(surf, (58, 58, 70), pygame.Rect(0, 0, 24, 12))
+    pygame.draw.rect(surf, (250, 208, 84), pygame.Rect(0, 0, 24, 12), width=2)
+    pygame.draw.line(surf, (250, 208, 84), (11, 2), (11, 9), width=2)
+    return surf
+
+
 _BUILDERS: dict[str, Callable[[], pygame.Surface]] = {
     "logo": _build_logo,
     "cleaner": _build_cleaner,
+    "cleaner.slimed": _build_cleaner_slimed,
     "building": _build_building,
     "building.haunted": _build_building_haunted,
     "tower": _build_tower,
@@ -123,6 +149,8 @@ _BUILDERS: dict[str, Callable[[], pygame.Surface]] = {
     "car.wagon": _build_car_wagon,
     "car.performance": _build_car_performance,
     "wisp.faint": _build_wisp_faint,
+    "smudge": _build_smudge,
+    "snare": _build_snare,
 }
 
 
