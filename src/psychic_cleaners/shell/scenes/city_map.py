@@ -9,9 +9,10 @@ from psychic_cleaners.core.constants import (
     PSI_MAX,
     TOWER_POS,
 )
-from psychic_cleaners.core.events import Command, GridPos, SetDestination
+from psychic_cleaners.core.events import Command, DeployBait, GridPos, SetDestination
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
+from psychic_cleaners.shell.scenes import _draw_mascot_banner
 from psychic_cleaners.shell.text import TextRenderer
 
 _CELL: int = 56
@@ -46,6 +47,8 @@ class CityMapScene:
                 self.cursor = (x, min(y + 1, GRID_HEIGHT - 1))
             elif event.key == pygame.K_RETURN:
                 commands.append(SetDestination(self.cursor))
+            elif event.key == pygame.K_b:
+                commands.append(DeployBait())
         return commands
 
     def draw(
@@ -82,6 +85,7 @@ class CityMapScene:
         cursor_rect = _cell_rect(self.cursor).inflate(6, 6)
         pygame.draw.rect(surface, (255, 230, 90), cursor_rect, width=2)
         self._draw_hud(surface, game, text)
+        _draw_mascot_banner(surface, game, text)
 
     def _draw_hud(self, surface: pygame.Surface, game: Game, text: TextRenderer) -> None:
         pygame.draw.rect(surface, (12, 12, 18), pygame.Rect(0, _HUD_Y, 640, 400 - _HUD_Y))

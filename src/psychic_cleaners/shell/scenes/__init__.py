@@ -6,6 +6,7 @@ import pygame
 
 from psychic_cleaners.core.events import Command, Continue
 from psychic_cleaners.core.game import Game
+from psychic_cleaners.core.giant import MascotState
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.text import TextRenderer
 
@@ -18,6 +19,17 @@ class Scene(Protocol):
     def draw(
         self, surface: pygame.Surface, game: Game, gfx: SpriteFactory, text: TextRenderer
     ) -> None: ...
+
+
+def _draw_mascot_banner(surface: pygame.Surface, game: Game, text: TextRenderer) -> None:
+    """Flashing mascot-alert banner; draws nothing unless the mascot is in ALERT."""
+    if game.mascot.state is not MascotState.ALERT:
+        return
+    if int(game.mascot.alert_remaining * 2) % 2 != 0:
+        return  # off phase of the flash
+    charges = game.loadout.bait_charges if game.loadout is not None else 0
+    banner = f"MASCOT INBOUND — B: BAIT ({charges} left)"
+    text.draw(surface, banner, (150, 8), size=20, color=(255, 96, 96))
 
 
 class PlaceholderScene:

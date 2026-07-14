@@ -22,6 +22,8 @@ from psychic_cleaners.core.constants import (
     CONTAINMENT_RIG_CAPACITY,
     DEPOT_POS,
     STARTING_BANKROLL,
+    STOMP_FINE,
+    STOMP_PSI_SPIKE,
     VACUUM_BOUNTY,
     WISP_TOWER_PSI_JUMP,
 )
@@ -31,6 +33,8 @@ from psychic_cleaners.core.events import (
     AccountAccepted,
     AccountRejected,
     Arrived,
+    BaitDeployed,
+    BuildingStomped,
     BustMissed,
     BuyItem,
     CleanerSlimed,
@@ -38,6 +42,7 @@ from psychic_cleaners.core.events import (
     Command,
     CommandRejected,
     Continue,
+    DeployBait,
     EnterAccount,
     Event,
     FinaleUnlocked,
@@ -59,11 +64,13 @@ from psychic_cleaners.core.events import (
     SnaresEmptied,
     SpringSnare,
     Steer,
+    StompTriggered,
     TravelStarted,
     VehicleSelected,
     WispCaptured,
     WispReachedTower,
 )
+from psychic_cleaners.core.giant import MascotModel
 from psychic_cleaners.core.loadout import Loadout
 from psychic_cleaners.core.pk import PsiModel
 from psychic_cleaners.core.rng import Rng, make_rng
@@ -87,6 +94,7 @@ class Game:
     notice: str | None = None  # last rejection message, drawn by title/shop scenes
     psi: PsiModel = field(default_factory=PsiModel)
     city: City = field(default_factory=City.new)
+    mascot: MascotModel = field(default_factory=MascotModel)
     slimed: set[int] = field(default_factory=set)  # cleaner indices 0..2
     contained: int = 0  # ghosts held in the containment rig
     snares_full: int = 0
@@ -111,7 +119,10 @@ class Game:
                 and self.bust.phase is BustPhase.ACTIVE
             ):
                 events.extend(self.bust.tick(dt_seconds, self.rng))
-            # (3) post-tick resolution: wisp PSI jumps, one-shot finale unlock
+            # (3) post-tick resolution: stomp translation FIRST (so a stomp's psi
+            # spike lands before the one-shot finale-unlock check below), then wisp
+            # PSI jumps, then one-shot finale unlock.
+            events = self._resolve_stomps(events)
             for event in world_events:
                 if isinstance(event, WispReachedTower):
                     self.psi.spike(float(WISP_TOWER_PSI_JUMP))
@@ -145,7 +156,10 @@ class Game:
     def _world_tick(self, dt_seconds: float) -> list[Event]:
         self.clock.advance(dt_seconds)
         self.psi.advance(dt_seconds, self.city.active_haunts())
-        return self.city.tick(dt_seconds, self.psi.value, self.rng)
+        events = self.city.tick(dt_seconds, self.psi.value, self.rng)
+        has_sensor = self.loadout.has("sensor") if self.loadout is not None else False
+        events.extend(self.mascot.tick(dt_seconds, self.psi.value, has_sensor, self.rng))
+        return events
 
     def _tick_drive(self, dt_seconds: float) -> list[Event]:
         assert self.drive is not None
@@ -158,9 +172,33 @@ class Game:
             events.append(event)
         return events
 
+    def _resolve_stomps(self, events: list[Event]) -> list[Event]:
+        """Post-tick: translate internal StompTriggered into world consequences."""
+        resolved: list[Event] = []
+        for event in events:
+            if isinstance(event, StompTriggered):
+                pos = self.rng.choice(self.city.stompable_positions())
+                fine = self.wallet.fine(STOMP_FINE)
+                self.psi.spike(STOMP_PSI_SPIKE)
+                resolved.append(BuildingStomped(pos, fine))
+            else:
+                resolved.append(event)
+        return resolved
+
+    def _handle_deploy_bait(self) -> list[Event]:
+        """Charges are checked FIRST so a chargeless press never cancels the alert."""
+        if self.loadout is None or self.loadout.bait_charges <= 0:
+            return []
+        if self.mascot.deploy_bait() and self.loadout.use_bait():
+            return [BaitDeployed()]
+        return []
+
     def _dispatch(self, command: Command, events: list[Event]) -> None:
         # Unknown or invalid commands for the current scene are ignored silently.
-        if self.scene is SceneId.TITLE:
+        world_scenes = (SceneId.MAP, SceneId.DRIVE, SceneId.BUST)
+        if isinstance(command, DeployBait) and self.scene in world_scenes:
+            events.extend(self._handle_deploy_bait())
+        elif self.scene is SceneId.TITLE:
             events.extend(self._handle_title(command))
         elif self.scene is SceneId.GAME_OVER and isinstance(command, Continue):
             self._reset()
@@ -400,6 +438,7 @@ class Game:
         self.notice = None
         self.psi = PsiModel()
         self.city = City.new()
+        self.mascot = MascotModel()
         self.slimed = set()
         self.contained = 0
         self.snares_full = 0

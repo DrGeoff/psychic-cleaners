@@ -6,6 +6,7 @@ from psychic_cleaners.core.bust import BustPhase
 from psychic_cleaners.core.constants import BUST_GROUND_Y, CLEANER_SPEED
 from psychic_cleaners.core.events import (
     Command,
+    DeployBait,
     LaySnare,
     MoveCleaner,
     PlaceCleaner,
@@ -13,6 +14,7 @@ from psychic_cleaners.core.events import (
 )
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
+from psychic_cleaners.shell.scenes import _draw_mascot_banner
 from psychic_cleaners.shell.text import TextRenderer
 
 _POSITIONING = (BustPhase.POSITION_LEFT, BustPhase.POSITION_RIGHT, BustPhase.SNARE)
@@ -53,6 +55,8 @@ class BustingScene:
                     cmds.append(LaySnare())
             elif event.key == pygame.K_SPACE and bust.phase is BustPhase.ACTIVE:
                 cmds.append(SpringSnare())
+            elif event.key == pygame.K_b:
+                cmds.append(DeployBait())
         return cmds
 
     def draw(
@@ -99,6 +103,7 @@ class BustingScene:
             for start, end in beams:
                 pygame.draw.line(surface, (120, 220, 255), start, end, 3)
         text.draw(surface, _HINTS[bust.phase], (20, 12), size=16)
+        _draw_mascot_banner(surface, game, text)
 
 
 def _blit_on_ground(surface: pygame.Surface, sprite: pygame.Surface, x: float) -> None:

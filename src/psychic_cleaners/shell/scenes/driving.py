@@ -5,9 +5,10 @@ from typing import Final
 import pygame
 
 from psychic_cleaners.core.constants import CAR_X, DRIVE_LANES
-from psychic_cleaners.core.events import Command, Steer
+from psychic_cleaners.core.events import Command, DeployBait, Steer
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
+from psychic_cleaners.shell.scenes import _draw_mascot_banner
 from psychic_cleaners.shell.text import TextRenderer
 
 _ROAD_TOP: Final[int] = 110
@@ -38,6 +39,8 @@ class DrivingScene:
                     out.append(Steer(delta=-1))
                 elif event.key == pygame.K_DOWN:
                     out.append(Steer(delta=1))
+                elif event.key == pygame.K_b:
+                    out.append(DeployBait())
         return out
 
     def draw(
@@ -77,3 +80,4 @@ class DrivingScene:
         pygame.draw.rect(surface, _BAR_FILL, fill)
         pygame.draw.rect(surface, _BAR_EDGE, _BAR_RECT, 1)
         text.draw(surface, f"${game.wallet.balance}", (16, 16), size=20)
+        _draw_mascot_banner(surface, game, text)
