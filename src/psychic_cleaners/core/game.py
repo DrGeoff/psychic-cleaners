@@ -20,8 +20,10 @@ from psychic_cleaners.core.constants import (
     CLEANER_COUNT,
     DEPOT_POS,
     STARTING_BANKROLL,
+    VACUUM_BOUNTY,
     WISP_TOWER_PSI_JUMP,
 )
+from psychic_cleaners.core.drive import DriveSim
 from psychic_cleaners.core.economy import Wallet
 from psychic_cleaners.core.events import (
     AccountAccepted,
@@ -44,7 +46,10 @@ from psychic_cleaners.core.events import (
     SelectVehicle,
     SetDestination,
     SnaresEmptied,
+    Steer,
+    TravelStarted,
     VehicleSelected,
+    WispCaptured,
     WispReachedTower,
 )
 from psychic_cleaners.core.loadout import Loadout
@@ -63,6 +68,7 @@ class Game:
     player_name: str = ""
     starting_bankroll: int = STARTING_BANKROLL
     loadout: Loadout | None = None
+    drive: DriveSim | None = None
     result: str | None = None
     notice: str | None = None  # last rejection message, drawn by title/shop scenes
     psi: PsiModel = field(default_factory=PsiModel)
@@ -83,6 +89,8 @@ class Game:
         if self.scene in (SceneId.MAP, SceneId.DRIVE, SceneId.BUST):
             world_events = self._world_tick(dt_seconds)
             events.extend(world_events)
+            if self.scene is SceneId.DRIVE and self.drive is not None:
+                events.extend(self._tick_drive(dt_seconds))
             # (3) post-tick resolution: wisp PSI jumps, one-shot finale unlock
             for event in world_events:
                 if isinstance(event, WispReachedTower):
@@ -90,12 +98,26 @@ class Game:
             if self.psi.at_max and not self.finale_unlocked:
                 self.finale_unlocked = True
                 events.append(FinaleUnlocked())
+            if self.drive is not None and self.drive.arrived:
+                assert self.destination is not None
+                events.extend(self._arrive_at(self.destination))
         return events
 
     def _world_tick(self, dt_seconds: float) -> list[Event]:
         self.clock.advance(dt_seconds)
         self.psi.advance(dt_seconds, self.city.active_haunts())
         return self.city.tick(dt_seconds, self.psi.value, self.rng)
+
+    def _tick_drive(self, dt_seconds: float) -> list[Event]:
+        assert self.drive is not None
+        events: list[Event] = []
+        for event in self.drive.tick(dt_seconds, self.rng):
+            if isinstance(event, WispCaptured):
+                self.wallet.earn(VACUUM_BOUNTY)
+                if self.city.wisps:
+                    self.city.wisps.pop(0)  # one road catch thins the city population
+            events.append(event)
+        return events
 
     def _dispatch(self, command: Command, events: list[Event]) -> None:
         # Unknown or invalid commands for the current scene are ignored silently.
@@ -108,6 +130,8 @@ class Game:
             self._handle_shop(command, events)
         elif self.scene is SceneId.MAP:
             events.extend(self._handle_map(command))
+        elif self.scene is SceneId.DRIVE and isinstance(command, Steer) and self.drive is not None:
+            self.drive.steer(command.delta)
 
     def _handle_title(self, command: Command) -> list[Event]:
         """Handle a command received while on the TITLE scene."""
@@ -173,13 +197,27 @@ class Game:
 
     def _handle_map(self, command: Command) -> list[Event]:
         if isinstance(command, SetDestination):
-            # Instant-travel placeholder: the Drive milestone (Task 21) replaces
-            # this with a DriveSim, TravelStarted, and the DRIVE scene.
-            self.destination = command.pos
-            return self._arrive_at(command.pos)
+            return self._set_destination(command.pos)
         if isinstance(command, BuyItem):
             return self._depot_restock(command.item_id)
         return []
+
+    def _set_destination(self, pos: GridPos) -> list[Event]:
+        if pos == self.position:
+            return self._arrive_at(pos)
+        assert self.loadout is not None  # MAP is only reachable with a vehicle
+        distance = self.city.distance(self.position, pos)
+        self.destination = pos
+        self.drive = DriveSim(
+            distance_total=distance,
+            speed=self.loadout.vehicle.speed,
+            has_vacuum=self.loadout.has("vacuum"),
+            has_lens=self.loadout.has("lens"),
+        )
+        events: list[Event] = [TravelStarted(dest=pos, distance=distance)]
+        self.scene = SceneId.DRIVE
+        events.append(SceneChanged(scene=SceneId.DRIVE))
+        return events
 
     def _depot_restock(self, item_id: str) -> list[Event]:
         """Mid-game snare restock: only "snare", and only at the Depot."""
@@ -208,16 +246,23 @@ class Game:
         """
         self.position = pos
         self.destination = None
-        events: list[Event] = [Arrived(pos)]
+        self.drive = None
+        events: list[Event] = [Arrived(pos=pos)]
         if pos == DEPOT_POS:
             self.snares_full = 0
             self.contained = 0
             self.slimed.clear()
             events.append(SnaresEmptied())
             events.append(CleanersRestored())
-            self.scene = SceneId.MAP
+            if self.scene is not SceneId.MAP:
+                self.scene = SceneId.MAP
+                events.append(SceneChanged(scene=SceneId.MAP))
+        # Task 30 inserts its tower elif here, then Task 25 its haunted-building
+        # elif below it — both ABOVE the else.
         else:
-            self.scene = SceneId.MAP
+            if self.scene is not SceneId.MAP:
+                self.scene = SceneId.MAP
+                events.append(SceneChanged(scene=SceneId.MAP))
         return events
 
     def free_snares(self) -> int:
@@ -245,6 +290,7 @@ class Game:
         self.result = None
         self.wallet = Wallet()
         self.loadout = None
+        self.drive = None
         self.notice = None
         self.psi = PsiModel()
         self.city = City.new()

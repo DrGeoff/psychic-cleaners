@@ -10,9 +10,9 @@ from psychic_cleaners.core.constants import (
     WISP_TOWER_PSI_JUMP,
 )
 from psychic_cleaners.core.events import (
-    Arrived,
     BuyItem,
     CleanersRestored,
+    Event,
     FinaleUnlocked,
     ItemBought,
     NewGame,
@@ -20,6 +20,7 @@ from psychic_cleaners.core.events import (
     SceneId,
     SetDestination,
     SnaresEmptied,
+    TravelStarted,
     WispReachedTower,
 )
 from psychic_cleaners.core.game import Game, new_game
@@ -123,16 +124,16 @@ def test_finale_unlocked_exactly_once() -> None:
     assert game.finale_unlocked is True
 
 
-def test_instant_travel_to_neighbour() -> None:
-    # PLACEHOLDER BEHAVIOUR: Milestone 5 travels instantly. The Drive
-    # milestone (Task 21) replaces the MAP handler with DriveSim/TravelStarted
-    # and MUST rewrite this test to match the contract's MAP section.
+def test_set_destination_to_neighbour_starts_a_drive() -> None:
+    # Milestone 6 (Task 21) replaced the Milestone 5 instant-travel placeholder:
+    # SetDestination to a different cell now starts a DriveSim and switches to
+    # the DRIVE scene instead of teleporting the player there immediately.
     game = _map_game(9)
     events = game.tick([SetDestination((1, 5))], 0.0)
-    assert game.position == (1, 5)
-    assert game.destination is None
-    assert game.scene is SceneId.MAP
-    assert Arrived((1, 5)) in events
+    assert any(isinstance(e, TravelStarted) for e in events)
+    assert game.position == DEPOT_POS  # not moved yet
+    assert game.destination == (1, 5)
+    assert game.scene is SceneId.DRIVE
 
 
 def test_depot_visit_services_franchise() -> None:
@@ -141,13 +142,19 @@ def test_depot_visit_services_franchise() -> None:
     game.snares_full = 2
     game.contained = 5
     game.slimed = {0, 2}
-    events = game.tick([SetDestination(DEPOT_POS)], 0.0)
+    departure = game.tick([SetDestination(DEPOT_POS)], 0.0)
+    assert any(isinstance(e, TravelStarted) for e in departure)
+    collected: list[Event] = []
+    ticks = 0
+    while game.scene is SceneId.DRIVE and ticks < 200:
+        collected.extend(game.tick([], 0.1))
+        ticks += 1
     assert game.position == DEPOT_POS
     assert game.snares_full == 0
     assert game.contained == 0
     assert game.slimed == set()
-    assert any(isinstance(e, SnaresEmptied) for e in events)
-    assert any(isinstance(e, CleanersRestored) for e in events)
+    assert any(isinstance(e, SnaresEmptied) for e in collected)
+    assert any(isinstance(e, CleanersRestored) for e in collected)
     assert game.scene is SceneId.MAP
 
 
