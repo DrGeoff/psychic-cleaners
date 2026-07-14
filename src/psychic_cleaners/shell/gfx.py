@@ -24,9 +24,59 @@ def _build_cleaner() -> pygame.Surface:
     return surface
 
 
+def _build_building() -> pygame.Surface:
+    surface = pygame.Surface((48, 48), pygame.SRCALPHA)
+    surface.fill((70, 80, 110))
+    pygame.draw.rect(surface, (40, 45, 70), pygame.Rect(0, 0, 48, 48), width=2)
+    for wx in range(8, 41, 12):
+        for wy in range(8, 41, 12):
+            pygame.draw.rect(surface, (240, 220, 140), pygame.Rect(wx, wy, 6, 8))
+    return surface
+
+
+def _build_building_haunted() -> pygame.Surface:
+    surface = pygame.Surface((48, 48), pygame.SRCALPHA)
+    surface.fill((60, 105, 75))
+    pygame.draw.rect(surface, (30, 60, 40), pygame.Rect(0, 0, 48, 48), width=2)
+    for wx in range(8, 41, 12):
+        for wy in range(8, 41, 12):
+            pygame.draw.rect(surface, (180, 255, 130), pygame.Rect(wx, wy, 6, 8))
+    pygame.draw.circle(surface, (200, 255, 160), (24, 6), 5)
+    return surface
+
+
+def _build_tower() -> pygame.Surface:
+    surface = pygame.Surface((48, 48), pygame.SRCALPHA)
+    pygame.draw.rect(surface, (90, 60, 130), pygame.Rect(8, 16, 32, 32))
+    pygame.draw.polygon(surface, (120, 80, 170), [(8, 16), (24, 0), (40, 16)])
+    pygame.draw.rect(surface, (240, 230, 120), pygame.Rect(21, 34, 6, 14))
+    return surface
+
+
+def _build_depot() -> pygame.Surface:
+    surface = pygame.Surface((48, 48), pygame.SRCALPHA)
+    surface.fill((150, 70, 60))
+    pygame.draw.rect(surface, (90, 40, 35), pygame.Rect(0, 0, 48, 48), width=2)
+    pygame.draw.rect(surface, (230, 230, 230), pygame.Rect(16, 22, 16, 26))
+    pygame.draw.rect(surface, (250, 250, 200), pygame.Rect(6, 6, 36, 10))
+    return surface
+
+
+def _build_wisp() -> pygame.Surface:
+    surface = pygame.Surface((16, 16), pygame.SRCALPHA)
+    pygame.draw.circle(surface, (180, 240, 255), (8, 8), 7)
+    pygame.draw.circle(surface, (255, 255, 255), (6, 6), 3)
+    return surface
+
+
 _BUILDERS: dict[str, Callable[[], pygame.Surface]] = {
     "logo": _build_logo,
     "cleaner": _build_cleaner,
+    "building": _build_building,
+    "building.haunted": _build_building_haunted,
+    "tower": _build_tower,
+    "depot": _build_depot,
+    "wisp": _build_wisp,
 }
 
 

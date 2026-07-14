@@ -9,6 +9,7 @@ from psychic_cleaners.core.events import SceneId
 from psychic_cleaners.core.game import new_game
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.scenes import PlaceholderScene, Scene
+from psychic_cleaners.shell.scenes.city_map import CityMapScene
 from psychic_cleaners.shell.scenes.shop import ShopScene
 from psychic_cleaners.shell.scenes.title import TitleScene
 from psychic_cleaners.shell.text import TextRenderer
@@ -20,7 +21,7 @@ FPS: Final[int] = 60
 SCENES: Final[dict[SceneId, Scene]] = {
     SceneId.TITLE: TitleScene(),
     SceneId.SHOP: ShopScene(),
-    SceneId.MAP: PlaceholderScene("MAP"),
+    SceneId.MAP: CityMapScene(),
     SceneId.DRIVE: PlaceholderScene("DRIVE"),
     SceneId.BUST: PlaceholderScene("BUST"),
     SceneId.FINALE: PlaceholderScene("FINALE"),
