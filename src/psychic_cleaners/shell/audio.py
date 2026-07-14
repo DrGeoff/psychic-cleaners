@@ -39,6 +39,65 @@ def _seq(*parts: bytes) -> bytes:
     return b"".join(parts)
 
 
+_NOTE_NAMES: Final[tuple[str, ...]] = (
+    "C",
+    "C#",
+    "D",
+    "D#",
+    "E",
+    "F",
+    "F#",
+    "G",
+    "G#",
+    "A",
+    "A#",
+    "B",
+)
+
+
+def _note_freq(semitones_above_c0: int) -> float:
+    a4 = 9 + 12 * 4  # A4 in semitones above C0
+    return float(440.0 * 2.0 ** ((semitones_above_c0 - a4) / 12.0))
+
+
+NOTE_HZ: Final[dict[str, float]] = {
+    f"{name}{octave}": _note_freq(_NOTE_NAMES.index(name) + 12 * octave)
+    for octave in (4, 5)
+    for name in _NOTE_NAMES
+} | {"C6": _note_freq(12 * 6)}
+
+# Original 16-note hook, call (bars 1-2) and answer (bars 3-4). "" = rest.
+THEME: Final[list[tuple[str, int]]] = [
+    ("C5", 150),
+    ("E5", 150),
+    ("G5", 150),
+    ("E5", 150),
+    ("A5", 300),
+    ("G5", 150),
+    ("", 150),
+    ("E5", 300),
+    ("F5", 150),
+    ("E5", 150),
+    ("D5", 150),
+    ("F5", 150),
+    ("E5", 300),
+    ("D5", 150),
+    ("C5", 150),
+    ("", 300),
+]
+
+
+def _silence(ms: int) -> bytes:
+    return b"\x00\x00" * _sample_count(ms)
+
+
+def build_theme() -> bytes:
+    parts: list[bytes] = []
+    for note, ms in THEME:
+        parts.append(synth_square(NOTE_HZ[note], ms, 0.35) if note else _silence(ms))
+    return b"".join(parts)
+
+
 _RECIPES: Final[dict[str, Callable[[], bytes]]] = {
     "catch": lambda: _seq(synth_square(660.0, 60), synth_square(880.0, 90)),
     "trap": lambda: _seq(
@@ -70,7 +129,7 @@ _RECIPES: Final[dict[str, Callable[[], bytes]]] = {
     ),
     "buy": lambda: _seq(synth_square(988.0, 40), synth_square(1319.0, 70)),
     "reject": lambda: synth_square(160.0, 140, 0.6),
-    "theme": lambda: synth_square(440.0, 300, 0.3),
+    "theme": build_theme,
 }
 
 
@@ -80,6 +139,7 @@ class AudioBank:
     def __init__(self, enabled: bool = True) -> None:
         self._enabled = False
         self._sounds: dict[str, pygame.mixer.Sound] = {}
+        self._music: pygame.mixer.Sound | None = None
         if not enabled:
             return
         try:
@@ -94,3 +154,14 @@ class AudioBank:
         sound = self._sounds.get(name)
         if sound is not None:
             sound.play()
+
+    def play_music_loop(self) -> None:
+        if not self._enabled:
+            return
+        if self._music is None:
+            self._music = pygame.mixer.Sound(buffer=build_theme())
+        self._music.play(loops=-1)
+
+    def stop_music(self) -> None:
+        if self._music is not None:
+            self._music.stop()

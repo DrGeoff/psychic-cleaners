@@ -13,6 +13,29 @@ from psychic_cleaners.shell.text import TextRenderer
 _NAME_MAX: Final[int] = 20
 _CODE_MAX: Final[int] = 7
 
+KARAOKE_WORDS: Final[tuple[str, ...]] = (
+    "WHEN",
+    "THE",
+    "STAINS",
+    "COME",
+    "CREEPING",
+    "CALL",
+    "THE",
+    "CLEANERS",
+)
+
+
+def _draw_karaoke(surface: pygame.Surface, text: TextRenderer) -> None:
+    """Bouncing-ball lyric line — pure presentation, no game state."""
+    ball_index = int(pygame.time.get_ticks() / 500) % len(KARAOKE_WORDS)
+    x = 48
+    y = 330
+    for i, word in enumerate(KARAOKE_WORDS):
+        text.draw(surface, word, (x, y), size=14, color=(250, 220, 120))
+        if i == ball_index:
+            pygame.draw.circle(surface, (255, 255, 255), (x + 4 * len(word), y - 10), 4)
+        x += 8 * len(word) + 12
+
 
 class _Field(enum.Enum):
     NAME = enum.auto()
@@ -80,6 +103,7 @@ class TitleScene:
             size=14,
             color=(160, 160, 190),
         )
+        _draw_karaoke(surface, text)
 
     def _draw_field(
         self,

@@ -85,6 +85,9 @@ class App:
         self.gfx = SpriteFactory()
         self.text = TextRenderer()
         self.audio = AudioBank()
+        self._prev_scene: SceneId = self.game.scene
+        if self._prev_scene is SceneId.TITLE:
+            self.audio.play_music_loop()
 
     def step(self, dt: float) -> None:
         events = pygame.event.get()
@@ -98,6 +101,12 @@ class App:
             sound_name = EVENT_SOUNDS.get(type(game_event))
             if sound_name is not None:
                 self.audio.play(sound_name)
+        if self.game.scene is not self._prev_scene:
+            if self.game.scene is SceneId.TITLE:
+                self.audio.play_music_loop()
+            elif self._prev_scene is SceneId.TITLE:
+                self.audio.stop_music()
+            self._prev_scene = self.game.scene
         scene.draw(self.logical, self.game, self.gfx, self.text)
         pygame.transform.scale(self.logical, self.window.get_size(), self.window)
         pygame.display.flip()
