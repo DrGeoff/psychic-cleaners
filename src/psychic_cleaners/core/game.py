@@ -16,14 +16,16 @@ from psychic_cleaners.core.bust import BustOutcome, BustPhase, BustSim
 from psychic_cleaners.core.catalog import ITEMS, VEHICLES
 from psychic_cleaners.core.city import City
 from psychic_cleaners.core.clock import GameClock
-from psychic_cleaners.core.codec import AccountCodeError, decode_account
+from psychic_cleaners.core.codec import AccountCodeError, decode_account, encode_account
 from psychic_cleaners.core.constants import (
     CLEANER_COUNT,
     CONTAINMENT_RIG_CAPACITY,
     DEPOT_POS,
+    FINALE_NEEDED_INSIDE,
     STARTING_BANKROLL,
     STOMP_FINE,
     STOMP_PSI_SPIKE,
+    TOWER_POS,
     VACUUM_BOUNTY,
     WISP_TOWER_PSI_JUMP,
 )
@@ -48,6 +50,7 @@ from psychic_cleaners.core.events import (
     FinaleUnlocked,
     FinishShopping,
     GameLost,
+    GameWon,
     GhostTrapped,
     GridPos,
     HauntCleared,
@@ -63,6 +66,7 @@ from psychic_cleaners.core.events import (
     SetDestination,
     SnaresEmptied,
     SpringSnare,
+    StartRun,
     Steer,
     StompTriggered,
     TravelStarted,
@@ -70,6 +74,7 @@ from psychic_cleaners.core.events import (
     WispCaptured,
     WispReachedTower,
 )
+from psychic_cleaners.core.finale import FinaleOutcome, FinaleSim
 from psychic_cleaners.core.giant import MascotModel
 from psychic_cleaners.core.loadout import Loadout
 from psychic_cleaners.core.pk import PsiModel
@@ -89,6 +94,7 @@ class Game:
     loadout: Loadout | None = None
     drive: DriveSim | None = None
     bust: BustSim | None = None
+    finale: FinaleSim | None = None
     result: str | None = None
     lose_reason: str | None = None  # set alongside result == "lost"; drawn by GAME_OVER
     notice: str | None = None  # last rejection message, drawn by title/shop scenes
@@ -104,6 +110,9 @@ class Game:
 
     def tick(self, commands: Sequence[Command], dt_seconds: float) -> list[Event]:
         events: list[Event] = []
+        # Capture the scene BEFORE dispatch: a mid-tick arrival that switches to
+        # FINALE must not also finale-tick in the same call (Task 7 tick shape).
+        scene = self.scene
         # 1. Command dispatch: per-command, scene-gated handlers.
         for command in commands:
             self._dispatch(command, events)
@@ -151,6 +160,8 @@ class Game:
                 events.append(GameLost(reason))
                 self.scene = SceneId.GAME_OVER
                 events.append(SceneChanged(SceneId.GAME_OVER))
+        if scene is SceneId.FINALE:
+            events.extend(self._tick_finale(dt_seconds))
         return events
 
     def _world_tick(self, dt_seconds: float) -> list[Event]:
@@ -209,6 +220,9 @@ class Game:
             events.extend(self._handle_map(command))
         elif self.scene is SceneId.DRIVE and isinstance(command, Steer) and self.drive is not None:
             self.drive.steer(command.delta)
+        elif self.scene is SceneId.FINALE:
+            if isinstance(command, StartRun) and self.finale is not None:
+                self.finale.start_run()
         elif self.scene is SceneId.BUST and self.bust is not None:
             bust = self.bust
             if isinstance(command, MoveCleaner):
@@ -352,8 +366,8 @@ class Game:
             if self.scene is not SceneId.MAP:
                 self.scene = SceneId.MAP
                 events.append(SceneChanged(scene=SceneId.MAP))
-        # Task 30 inserts its tower elif here, then Task 25 its haunted-building
-        # elif below it — both ABOVE the else.
+        elif pos == TOWER_POS and self.finale_unlocked:
+            self._arrive_at_tower(events)
         elif (
             pos in self.city.haunted_positions()
             and self.free_snares() > 0
@@ -366,6 +380,43 @@ class Game:
             if self.scene is not SceneId.MAP:
                 self.scene = SceneId.MAP
                 events.append(SceneChanged(scene=SceneId.MAP))
+        return events
+
+    def _arrive_at_tower(self, events: list[Event]) -> None:
+        """Tower arrival with the finale unlocked: enter the door run or lose."""
+        if self.able_cleaners() >= FINALE_NEEDED_INSIDE:
+            self.finale = FinaleSim(able_cleaners=self.able_cleaners())
+            self.scene = SceneId.FINALE
+            events.append(SceneChanged(SceneId.FINALE))
+        else:
+            self.result = "lost"
+            events.append(GameLost("not enough able cleaners"))
+            self.scene = SceneId.GAME_OVER
+            events.append(SceneChanged(SceneId.GAME_OVER))
+
+    def _tick_finale(self, dt_seconds: float) -> list[Event]:
+        """FINALE scene ticking and resolution: the world is frozen."""
+        events: list[Event] = []
+        if self.finale is None:
+            return events
+        # RunnerSquashed passes through untouched: a squashed runner is a
+        # finale-local casualty and must NOT be added to self.slimed.
+        events.extend(self.finale.tick(dt_seconds))
+        outcome = self.finale.outcome
+        if outcome is FinaleOutcome.WON:
+            if self.wallet.balance > self.starting_bankroll:
+                self.result = "won"
+                events.append(GameWon(encode_account(self.player_name, self.wallet.balance)))
+            else:
+                self.result = "lost"
+                events.append(GameLost("the franchise never turned a profit"))
+        elif outcome is FinaleOutcome.LOST:
+            self.result = "lost"
+            events.append(GameLost("the Tower claimed the city"))
+        if outcome is not None:
+            self.finale = None
+            self.scene = SceneId.GAME_OVER
+            events.append(SceneChanged(SceneId.GAME_OVER))
         return events
 
     def _resolve_bust(self) -> list[Event]:
@@ -435,6 +486,7 @@ class Game:
         self.loadout = None
         self.drive = None
         self.bust = None
+        self.finale = None
         self.notice = None
         self.psi = PsiModel()
         self.city = City.new()
