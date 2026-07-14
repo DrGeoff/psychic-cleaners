@@ -10,6 +10,7 @@ from psychic_cleaners.core.game import new_game
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.scenes import PlaceholderScene, Scene
 from psychic_cleaners.shell.scenes.city_map import CityMapScene
+from psychic_cleaners.shell.scenes.driving import DrivingScene
 from psychic_cleaners.shell.scenes.shop import ShopScene
 from psychic_cleaners.shell.scenes.title import TitleScene
 from psychic_cleaners.shell.text import TextRenderer
@@ -22,7 +23,7 @@ SCENES: Final[dict[SceneId, Scene]] = {
     SceneId.TITLE: TitleScene(),
     SceneId.SHOP: ShopScene(),
     SceneId.MAP: CityMapScene(),
-    SceneId.DRIVE: PlaceholderScene("DRIVE"),
+    SceneId.DRIVE: DrivingScene(),
     SceneId.BUST: PlaceholderScene("BUST"),
     SceneId.FINALE: PlaceholderScene("FINALE"),
     SceneId.GAME_OVER: PlaceholderScene("GAME_OVER"),

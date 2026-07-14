@@ -69,6 +69,47 @@ def _build_wisp() -> pygame.Surface:
     return surface
 
 
+def _build_car(
+    body: tuple[int, int, int],
+    roof: tuple[int, int, int],
+    roof_rect: tuple[int, int, int, int],
+    stripe: bool = False,
+) -> pygame.Surface:
+    surf = pygame.Surface((48, 24), pygame.SRCALPHA)
+    pygame.draw.rect(surf, body, pygame.Rect(2, 8, 44, 10), border_radius=4)
+    pygame.draw.rect(surf, roof, pygame.Rect(*roof_rect), border_radius=3)
+    if stripe:
+        pygame.draw.rect(surf, (250, 250, 250), pygame.Rect(2, 15, 44, 2))
+    for wheel_x in (12, 36):
+        pygame.draw.circle(surf, (25, 25, 30), (wheel_x, 20), 4)
+        pygame.draw.circle(surf, (190, 190, 200), (wheel_x, 20), 2)
+    return surf
+
+
+def _build_car_compact() -> pygame.Surface:
+    return _build_car((90, 175, 160), (140, 215, 205), (14, 3, 20, 8))
+
+
+def _build_car_hearse() -> pygame.Surface:
+    return _build_car((72, 62, 96), (52, 44, 70), (8, 3, 34, 8))
+
+
+def _build_car_wagon() -> pygame.Surface:
+    return _build_car((155, 110, 70), (120, 82, 50), (10, 3, 30, 8))
+
+
+def _build_car_performance() -> pygame.Surface:
+    return _build_car((205, 55, 55), (150, 30, 30), (18, 4, 16, 7), stripe=True)
+
+
+def _build_wisp_faint() -> pygame.Surface:
+    surf = pygame.Surface((24, 24), pygame.SRCALPHA)
+    pygame.draw.circle(surf, (180, 240, 255, 90), (12, 10), 8)
+    pygame.draw.circle(surf, (235, 255, 255, 90), (12, 10), 4)
+    pygame.draw.rect(surf, (180, 240, 255, 90), pygame.Rect(6, 14, 12, 6), border_radius=3)
+    return surf
+
+
 _BUILDERS: dict[str, Callable[[], pygame.Surface]] = {
     "logo": _build_logo,
     "cleaner": _build_cleaner,
@@ -77,6 +118,11 @@ _BUILDERS: dict[str, Callable[[], pygame.Surface]] = {
     "tower": _build_tower,
     "depot": _build_depot,
     "wisp": _build_wisp,
+    "car.compact": _build_car_compact,
+    "car.hearse": _build_car_hearse,
+    "car.wagon": _build_car_wagon,
+    "car.performance": _build_car_performance,
+    "wisp.faint": _build_wisp_faint,
 }
 
 
