@@ -5,8 +5,27 @@ from typing import Final
 
 import pygame
 
-from psychic_cleaners.core.events import SceneId
+from psychic_cleaners.core.events import (
+    AccountRejected,
+    BaitDeployed,
+    BeamsCrossed,
+    BuildingStomped,
+    BustMissed,
+    CleanerSlimed,
+    Event,
+    GameLost,
+    GameWon,
+    GhostTrapped,
+    ItemBought,
+    MascotAlert,
+    PurchaseRejected,
+    RunnerEntered,
+    RunnerSquashed,
+    SceneId,
+    WispCaptured,
+)
 from psychic_cleaners.core.game import new_game
+from psychic_cleaners.shell.audio import AudioBank
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.scenes import Scene
 from psychic_cleaners.shell.scenes.busting import BustingScene
@@ -21,6 +40,24 @@ from psychic_cleaners.shell.text import TextRenderer
 LOGICAL_SIZE: Final[tuple[int, int]] = (640, 400)
 WINDOW_SCALE: Final[int] = 2
 FPS: Final[int] = 60
+
+EVENT_SOUNDS: Final[dict[type[Event], str]] = {
+    GhostTrapped: "trap",
+    WispCaptured: "catch",
+    BustMissed: "miss",
+    BeamsCrossed: "backfire",
+    CleanerSlimed: "slime",
+    BuildingStomped: "stomp",
+    MascotAlert: "alert",
+    BaitDeployed: "bait",
+    RunnerEntered: "enter",
+    RunnerSquashed: "squash",
+    GameWon: "win",
+    GameLost: "lose",
+    ItemBought: "buy",
+    PurchaseRejected: "reject",
+    AccountRejected: "reject",
+}
 
 SCENES: Final[dict[SceneId, Scene]] = {
     SceneId.TITLE: TitleScene(),
@@ -47,6 +84,7 @@ class App:
         self.game = new_game(seed if seed is not None else int.from_bytes(os.urandom(4)))
         self.gfx = SpriteFactory()
         self.text = TextRenderer()
+        self.audio = AudioBank()
 
     def step(self, dt: float) -> None:
         events = pygame.event.get()
@@ -55,7 +93,11 @@ class App:
                 self.running = False
         scene = SCENES[self.game.scene]
         commands = scene.commands(events, self.game)
-        self.game.tick(commands, dt)
+        game_events = self.game.tick(commands, dt)
+        for game_event in game_events:
+            sound_name = EVENT_SOUNDS.get(type(game_event))
+            if sound_name is not None:
+                self.audio.play(sound_name)
         scene.draw(self.logical, self.game, self.gfx, self.text)
         pygame.transform.scale(self.logical, self.window.get_size(), self.window)
         pygame.display.flip()
