@@ -49,6 +49,7 @@ FAINT_WISP_CHANCE: Final[float] = 0.3
 ROAD_LENGTH_VISIBLE: Final[float] = 640.0
 
 # bust scene (logical coordinates, 640x400 space)
+BEAM_CROSS_GHOST_Y: Final[float] = 320.0
 BUST_GROUND_Y: Final[float] = 360.0
 BEAM_TOP_Y: Final[float] = 120.0
 BEAM_MAX_TILT: Final[float] = 140.0
