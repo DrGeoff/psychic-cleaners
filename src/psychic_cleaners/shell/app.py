@@ -1,61 +1,65 @@
-"""Application shell: window, logical surface, fixed-timestep main loop.
+"""Main loop: fixed-rate stepping, logical surface scaled to the window."""
 
-Minimal version. Later tasks add the Game, scene registry, sprite factory,
-text renderer, and audio bank; the names below are contract-fixed.
-"""
-
+import os
 from typing import Final
 
 import pygame
+
+from psychic_cleaners.core.events import SceneId
+from psychic_cleaners.core.game import new_game
+from psychic_cleaners.shell.gfx import SpriteFactory
+from psychic_cleaners.shell.scenes import PlaceholderScene, Scene
+from psychic_cleaners.shell.text import TextRenderer
 
 LOGICAL_SIZE: Final[tuple[int, int]] = (640, 400)
 WINDOW_SCALE: Final[int] = 2
 FPS: Final[int] = 60
 
-_BACKGROUND: Final[tuple[int, int, int]] = (16, 16, 32)
-_FPS_COLOR: Final[tuple[int, int, int]] = (230, 230, 230)
+SCENES: Final[dict[SceneId, Scene]] = {
+    SceneId.TITLE: PlaceholderScene("TITLE"),
+    SceneId.SHOP: PlaceholderScene("SHOP"),
+    SceneId.MAP: PlaceholderScene("MAP"),
+    SceneId.DRIVE: PlaceholderScene("DRIVE"),
+    SceneId.BUST: PlaceholderScene("BUST"),
+    SceneId.FINALE: PlaceholderScene("FINALE"),
+    SceneId.GAME_OVER: PlaceholderScene("GAME_OVER"),
+}
 
 
 class App:
-    """Owns the window, the 640x400 logical surface, and the main loop."""
+    """Owns the window, the Game, and the per-frame pipeline."""
 
     def __init__(self, seed: int | None = None) -> None:
         pygame.init()
-        self.seed = seed
-        self.window = pygame.display.set_mode(
-            (LOGICAL_SIZE[0] * WINDOW_SCALE, LOGICAL_SIZE[1] * WINDOW_SCALE)
-        )
+        window_size = (LOGICAL_SIZE[0] * WINDOW_SCALE, LOGICAL_SIZE[1] * WINDOW_SCALE)
+        self.window = pygame.display.set_mode(window_size)
         pygame.display.set_caption("Psychic Cleaners")
         self.logical = pygame.Surface(LOGICAL_SIZE)
-        self._font = pygame.font.Font(None, 20)
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.game = new_game(seed if seed is not None else int.from_bytes(os.urandom(4)))
+        self.gfx = SpriteFactory()
+        self.text = TextRenderer()
 
     def step(self, dt: float) -> None:
-        """Render one frame: clear, draw FPS, scale the logical surface up, flip."""
-        fps = 0.0 if dt <= 0.0 else 1.0 / dt
-        self.logical.fill(_BACKGROUND)
-        fps_surface = self._font.render(f"FPS: {fps:.0f}", True, _FPS_COLOR)
-        self.logical.blit(fps_surface, (4, 4))
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.QUIT:
+                self.running = False
+        scene = SCENES[self.game.scene]
+        commands = scene.commands(events, self.game)
+        self.game.tick(commands, dt)
+        scene.draw(self.logical, self.game, self.gfx, self.text)
         pygame.transform.scale(self.logical, self.window.get_size(), self.window)
         pygame.display.flip()
 
     def run(self) -> None:
-        """Fixed-timestep loop at FPS until the window is closed."""
-        clock = pygame.time.Clock()
-        running = True
-        while running:
-            dt = clock.tick(FPS) / 1000.0
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+        while self.running:
+            dt = self.clock.tick(FPS) / 1000.0
             self.step(dt)
 
 
 def main() -> None:
-    """Console entry point (see [project.scripts] in pyproject.toml).
-
-    Exception-safe per the contract: pygame.quit() runs exactly once, in the
-    finally, even if run() raises.
-    """
     app = App()
     try:
         app.run()
