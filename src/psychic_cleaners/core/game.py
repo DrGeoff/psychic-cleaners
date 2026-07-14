@@ -12,16 +12,25 @@ Game.tick keeps the contract's canonical three-step shape:
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from psychic_cleaners.core.catalog import ITEMS, VEHICLES
 from psychic_cleaners.core.clock import GameClock
 from psychic_cleaners.core.constants import STARTING_BANKROLL
+from psychic_cleaners.core.economy import Wallet
 from psychic_cleaners.core.events import (
+    BuyItem,
     Command,
     Continue,
     Event,
+    FinishShopping,
+    ItemBought,
     NewGame,
+    PurchaseRejected,
     SceneChanged,
     SceneId,
+    SelectVehicle,
+    VehicleSelected,
 )
+from psychic_cleaners.core.loadout import Loadout
 from psychic_cleaners.core.rng import Rng, make_rng
 
 __all__ = ["Game", "SceneId", "new_game"]
@@ -31,10 +40,13 @@ __all__ = ["Game", "SceneId", "new_game"]
 class Game:
     rng: Rng
     clock: GameClock = field(default_factory=GameClock)
+    wallet: Wallet = field(default_factory=Wallet)
     scene: SceneId = SceneId.TITLE
     player_name: str = ""
     starting_bankroll: int = STARTING_BANKROLL
+    loadout: Loadout | None = None
     result: str | None = None
+    notice: str | None = None  # last rejection message, drawn by title/shop scenes
 
     def tick(self, commands: Sequence[Command], dt_seconds: float) -> list[Event]:
         events: list[Event] = []
@@ -59,6 +71,49 @@ class Game:
         elif self.scene is SceneId.GAME_OVER and isinstance(command, Continue):
             self._reset()
             self._change_scene(SceneId.TITLE, events)
+        elif self.scene is SceneId.SHOP:
+            self._handle_shop(command, events)
+
+    def _handle_shop(self, command: Command, events: list[Event]) -> None:
+        match command:
+            case SelectVehicle(vehicle_id=vehicle_id):
+                vehicle = VEHICLES[vehicle_id]
+                if self.loadout is not None:
+                    reason = "vehicle already chosen"
+                    self.notice = reason
+                    events.append(PurchaseRejected(reason))
+                elif not self.wallet.can_afford(vehicle.price):
+                    reason = "cannot afford"
+                    self.notice = reason
+                    events.append(PurchaseRejected(reason))
+                else:
+                    self.wallet.spend(vehicle.price)
+                    self.loadout = Loadout(vehicle=vehicle)
+                    self.notice = None
+                    events.append(VehicleSelected(vehicle_id))
+            case BuyItem(item_id=item_id):
+                if self.loadout is None:
+                    reason = "choose a vehicle first"
+                    self.notice = reason
+                    events.append(PurchaseRejected(reason))
+                elif not self.wallet.can_afford(ITEMS[item_id].price):
+                    reason = "cannot afford"
+                    self.notice = reason
+                    events.append(PurchaseRejected(reason))
+                elif not self.loadout.can_add(item_id):
+                    reason = "no room in vehicle"
+                    self.notice = reason
+                    events.append(PurchaseRejected(reason))
+                else:
+                    self.wallet.spend(ITEMS[item_id].price)
+                    self.loadout.add(item_id)
+                    self.notice = None
+                    events.append(ItemBought(item_id))
+            case FinishShopping():
+                if self.loadout is not None:
+                    self.notice = None
+                    self.scene = SceneId.MAP
+                    events.append(SceneChanged(SceneId.MAP))
 
     def _change_scene(self, s: SceneId, events: list[Event]) -> None:
         self.scene = s
@@ -78,6 +133,9 @@ class Game:
         self.player_name = ""
         self.starting_bankroll = STARTING_BANKROLL
         self.result = None
+        self.wallet = Wallet()
+        self.loadout = None
+        self.notice = None
 
 
 def new_game(seed: int) -> Game:
