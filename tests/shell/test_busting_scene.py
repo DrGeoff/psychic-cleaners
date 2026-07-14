@@ -27,8 +27,8 @@ def _init_video() -> None:
 def test_new_sprites_have_expected_sizes() -> None:
     _init_video()
     gfx = SpriteFactory()
-    assert gfx.get("smudge").get_size() == (32, 32)
-    assert gfx.get("snare").get_size() == (24, 12)
+    assert gfx.get("smudge").get_size() == (48, 48)
+    assert gfx.get("snare").get_size() == (32, 16)
     assert gfx.get("cleaner.slimed").get_size() == gfx.get("cleaner").get_size()
 
 

@@ -33,8 +33,8 @@ def _key(key: int) -> pygame.event.Event:
     return pygame.event.Event(pygame.KEYDOWN, key=key)
 
 
-def test_mascot_sprite_is_48_by_64() -> None:
-    assert SpriteFactory().get("mascot").get_size() == (48, 64)
+def test_mascot_sprite_is_72_by_96() -> None:
+    assert SpriteFactory().get("mascot").get_size() == (72, 96)
 
 
 def test_finale_space_sends_start_run() -> None:

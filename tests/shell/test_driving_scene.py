@@ -24,9 +24,9 @@ def _pygame() -> Iterator[None]:
 
 
 @pytest.mark.parametrize("vehicle_id", ["compact", "hearse", "wagon", "performance"])
-def test_car_sprites_are_48_by_24(vehicle_id: str) -> None:
+def test_car_sprites_are_48_by_28(vehicle_id: str) -> None:
     sprite = SpriteFactory().get(f"car.{vehicle_id}")
-    assert sprite.get_size() == (48, 24)
+    assert sprite.get_size() == (48, 28)
 
 
 def test_car_sprites_have_distinct_body_colours() -> None:

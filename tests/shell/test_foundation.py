@@ -15,7 +15,7 @@ def test_sprite_factory_caches_surfaces() -> None:
     first = factory.get("cleaner")
     second = factory.get("cleaner")
     assert first is second
-    assert first.get_size() == (24, 32)
+    assert first.get_size() == (24, 40)
 
 
 def test_sprite_factory_builds_logo() -> None:
