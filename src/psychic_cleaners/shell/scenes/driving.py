@@ -79,5 +79,5 @@ class DrivingScene:
         fill = pygame.Rect(_BAR_RECT.x, _BAR_RECT.y, fill_width, _BAR_RECT.height)
         pygame.draw.rect(surface, _BAR_FILL, fill)
         pygame.draw.rect(surface, _BAR_EDGE, _BAR_RECT, 1)
-        text.draw(surface, f"${game.wallet.balance}", (16, 16), size=20)
+        text.draw(surface, f"${game.wallet.balance}", (16, 16), size=16)
         _draw_mascot_banner(surface, game, text)

@@ -159,7 +159,9 @@ class AudioBank:
         if not self._enabled:
             return
         if self._music is None:
-            self._music = pygame.mixer.Sound(buffer=build_theme())
+            # Reuse the "theme" Sound built once in __init__ instead of
+            # re-synthesizing build_theme() a second time.
+            self._music = self._sounds["theme"]
         self._music.play(loops=-1)
 
     def stop_music(self) -> None:

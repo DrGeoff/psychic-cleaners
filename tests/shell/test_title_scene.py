@@ -67,6 +67,9 @@ def test_enter_with_empty_code_emits_new_game() -> None:
     scene = TitleScene()
     out = scene.commands([_text("P"), _text("a"), _text("t"), _key(pygame.K_RETURN)], _game())
     assert out == [NewGame("Pat")]
+    # A later return to TITLE must not resurrect the previous name.
+    assert scene._name == ""
+    assert scene._code == ""
 
 
 def test_enter_with_code_emits_enter_account() -> None:
@@ -74,6 +77,9 @@ def test_enter_with_code_emits_enter_account() -> None:
     scene.commands([_text("P"), _text("a"), _text("t"), _key(pygame.K_TAB)], _game())
     out = scene.commands([_text(ch) for ch in "cpdg8jx"] + [_key(pygame.K_RETURN)], _game())
     assert out == [EnterAccount("Pat", "CPDG8JX")]
+    # A later return to TITLE must not resurrect the previous name/code.
+    assert scene._name == ""
+    assert scene._code == ""
 
 
 def test_enter_ignored_while_name_empty() -> None:

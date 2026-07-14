@@ -72,6 +72,10 @@ class TitleScene:
                         out.append(EnterAccount(self._name, self._code))
                     else:
                         out.append(NewGame(self._name))
+                    # A later return to TITLE (e.g. after GAME_OVER) must start
+                    # from blank fields, not the previous game's leftovers.
+                    self._name = ""
+                    self._code = ""
         return out
 
     def _append(self, text: str) -> None:

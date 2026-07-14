@@ -2,6 +2,7 @@
 
 import pygame
 
+from psychic_cleaners.core.catalog import ITEMS
 from psychic_cleaners.core.constants import (
     DEPOT_POS,
     GRID_HEIGHT,
@@ -9,7 +10,7 @@ from psychic_cleaners.core.constants import (
     PSI_MAX,
     TOWER_POS,
 )
-from psychic_cleaners.core.events import Command, DeployBait, GridPos, SetDestination
+from psychic_cleaners.core.events import BuyItem, Command, DeployBait, GridPos, SetDestination
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.scenes import _draw_mascot_banner
@@ -19,6 +20,7 @@ _CELL: int = 56
 _ORIGIN_X: int = 40
 _ORIGIN_Y: int = 12
 _HUD_Y: int = 356
+_RED: tuple[int, int, int] = (240, 120, 120)
 
 
 def _cell_rect(pos: GridPos) -> pygame.Rect:
@@ -49,6 +51,8 @@ class CityMapScene:
                 commands.append(SetDestination(self.cursor))
             elif event.key == pygame.K_b:
                 commands.append(DeployBait())
+            elif event.key == pygame.K_s:
+                commands.append(BuyItem("snare"))
         return commands
 
     def draw(
@@ -89,13 +93,18 @@ class CityMapScene:
 
     def _draw_hud(self, surface: pygame.Surface, game: Game, text: TextRenderer) -> None:
         pygame.draw.rect(surface, (12, 12, 18), pygame.Rect(0, _HUD_Y, 640, 400 - _HUD_Y))
-        text.draw(surface, f"${game.wallet.balance}", (10, _HUD_Y + 6), size=16)
-        text.draw(surface, f"PSI {game.psi.value:>4}", (10, _HUD_Y + 24), size=16)
-        bar = pygame.Rect(90, _HUD_Y + 26, 120, 10)
+        text.draw(surface, f"${game.wallet.balance}", (10, _HUD_Y + 4), size=16)
+        text.draw(surface, f"PSI {game.psi.value:>4}", (10, _HUD_Y + 18), size=16)
+        bar = pygame.Rect(90, _HUD_Y + 20, 120, 10)
         pygame.draw.rect(surface, (60, 60, 70), bar)
         fill_width = int(bar.width * game.psi.value / PSI_MAX)
         pygame.draw.rect(surface, (170, 90, 220), pygame.Rect(bar.left, bar.top, fill_width, 10))
         snares = f"snares {game.free_snares()} free / {game.snares_full} full"
-        text.draw(surface, snares, (240, _HUD_Y + 6), size=16)
-        text.draw(surface, f"contained {game.contained}", (240, _HUD_Y + 24), size=16)
-        text.draw(surface, f"slimed {len(game.slimed)}", (430, _HUD_Y + 6), size=16)
+        text.draw(surface, snares, (240, _HUD_Y + 4), size=16)
+        text.draw(surface, f"contained {game.contained}", (240, _HUD_Y + 18), size=16)
+        text.draw(surface, f"slimed {len(game.slimed)}", (430, _HUD_Y + 4), size=16)
+        if game.position == DEPOT_POS:
+            hint = f"S: buy snare (${ITEMS['snare'].price})"
+            text.draw(surface, hint, (430, _HUD_Y + 18), size=16)
+        if game.notice is not None:
+            text.draw(surface, game.notice, (10, _HUD_Y + 32), size=16, color=_RED)

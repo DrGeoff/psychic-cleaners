@@ -1,5 +1,7 @@
 """Synthesized audio: waveform shape, byte lengths, graceful no-ops."""
 
+import pytest
+
 from psychic_cleaners.shell.audio import SAMPLE_RATE, AudioBank, synth_noise, synth_square
 
 
@@ -22,6 +24,16 @@ def test_square_alternates_at_expected_period() -> None:
     assert all(s > 0 for s in samples[0:5])
     assert all(s < 0 for s in samples[5:10])
     assert all(s > 0 for s in samples[10:15])
+
+
+def test_play_music_loop_reuses_prebuilt_theme_sound() -> None:
+    bank = AudioBank()
+    if not bank._enabled:  # mixer genuinely unavailable on this machine
+        pytest.skip("mixer unavailable")
+    bank.play_music_loop()
+    # play_music_loop must reuse the "theme" Sound built once in __init__,
+    # not re-synthesize build_theme() a second time.
+    assert bank._music is bank._sounds["theme"]
 
 
 def test_disabled_bank_play_is_noop() -> None:

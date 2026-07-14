@@ -11,6 +11,7 @@ Game.tick keeps the contract's canonical three-step shape:
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Final
 
 from psychic_cleaners.core.bust import BustOutcome, BustPhase, BustSim
 from psychic_cleaners.core.catalog import ITEMS, VEHICLES
@@ -82,6 +83,14 @@ from psychic_cleaners.core.rng import Rng, make_rng
 
 __all__ = ["Game", "SceneId", "new_game"]
 
+# Scenes where the world clock, PSI, city, and mascot all tick.
+_WORLD_SCENES: Final[tuple[SceneId, ...]] = (SceneId.MAP, SceneId.DRIVE, SceneId.BUST)
+
+# A forged EnterAccount code with a bankroll below the cheapest vehicle would
+# soft-lock the shop (no vehicle affordable, no way to reach MAP). Legitimate
+# win codes are always > $10,000, so this only ever rejects forged codes.
+_CHEAPEST_VEHICLE_PRICE: Final[int] = min(vehicle.price for vehicle in VEHICLES.values())
+
 
 @dataclass
 class Game:
@@ -96,7 +105,7 @@ class Game:
     bust: BustSim | None = None
     finale: FinaleSim | None = None
     result: str | None = None
-    notice: str | None = None  # last rejection message, drawn by title/shop scenes
+    notice: str | None = None  # last rejection message, drawn by title/shop/map scenes
     last_account_code: str | None = None  # endgame resolution: drawn by GameOverScene
     lose_reason: str | None = None  # endgame resolution: drawn by GameOverScene
     psi: PsiModel = field(default_factory=PsiModel)
@@ -118,7 +127,7 @@ class Game:
         for command in commands:
             self._dispatch(command, events)
         # 2. scene/world ticking — AFTER the dispatch loop, on the current scene
-        if self.scene in (SceneId.MAP, SceneId.DRIVE, SceneId.BUST):
+        if self.scene in _WORLD_SCENES:
             world_events = self._world_tick(dt_seconds)
             events.extend(world_events)
             if self.scene is SceneId.DRIVE and self.drive is not None:
@@ -149,7 +158,7 @@ class Game:
             # free at the Depot), and too broke to restock one at the Depot
             # (Task 19's MAP-scene BuyItem("snare") flow).
             if (
-                self.scene in (SceneId.MAP, SceneId.DRIVE, SceneId.BUST)
+                self.scene in _WORLD_SCENES
                 and self.loadout is not None
                 and self.free_snares() == 0
                 and self.snares_full == 0
@@ -207,8 +216,7 @@ class Game:
 
     def _dispatch(self, command: Command, events: list[Event]) -> None:
         # Unknown or invalid commands for the current scene are ignored silently.
-        world_scenes = (SceneId.MAP, SceneId.DRIVE, SceneId.BUST)
-        if isinstance(command, DeployBait) and self.scene in world_scenes:
+        if isinstance(command, DeployBait) and self.scene in _WORLD_SCENES:
             events.extend(self._handle_deploy_bait())
         elif self.scene is SceneId.TITLE:
             events.extend(self._handle_title(command))
@@ -256,6 +264,12 @@ class Game:
             except AccountCodeError:
                 self.notice = "invalid account code"
                 return [AccountRejected("invalid account code")]
+            if bankroll < _CHEAPEST_VEHICLE_PRICE:
+                # A forged code with a starvation bankroll would otherwise strand
+                # the player in SHOP unable to afford any vehicle. Legitimate win
+                # codes are always > $10,000, so only forged codes hit this.
+                self.notice = "account too depleted"
+                return [AccountRejected("account too depleted")]
             self.player_name = command.name
             self.wallet.balance = bankroll
             self.starting_bankroll = bankroll
@@ -335,14 +349,14 @@ class Game:
             self.notice = "snares only, at the Depot"
             return [PurchaseRejected("snares only, at the Depot")]
         if self.loadout is None:  # defensive: MAP is unreachable without a vehicle
-            self.notice = "no vehicle"
-            return [PurchaseRejected("no vehicle")]
+            self.notice = "choose a vehicle first"
+            return [PurchaseRejected("choose a vehicle first")]
         if not self.wallet.can_afford(ITEMS["snare"].price):
             self.notice = "cannot afford"
             return [PurchaseRejected("cannot afford")]
         if not self.loadout.can_add("snare"):
-            self.notice = "no space in the vehicle"
-            return [PurchaseRejected("no space in the vehicle")]
+            self.notice = "no room in vehicle"
+            return [PurchaseRejected("no room in vehicle")]
         self.wallet.spend(ITEMS["snare"].price)
         self.loadout.add("snare")
         self.notice = None

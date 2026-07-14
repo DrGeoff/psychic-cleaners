@@ -5,7 +5,7 @@ import pygame
 from psychic_cleaners.core.catalog import VEHICLES
 from psychic_cleaners.core.city import Wisp
 from psychic_cleaners.core.constants import DEPOT_POS
-from psychic_cleaners.core.events import SceneId, SetDestination
+from psychic_cleaners.core.events import BuyItem, SceneId, SetDestination
 from psychic_cleaners.core.game import new_game
 from psychic_cleaners.core.loadout import Loadout
 from psychic_cleaners.shell.gfx import SpriteFactory
@@ -41,6 +41,14 @@ def test_enter_emits_set_destination_at_cursor() -> None:
     assert commands == [SetDestination((1, 5))]
 
 
+def test_s_emits_buy_snare() -> None:
+    pygame.init()
+    scene = CityMapScene()
+    game = new_game(5)
+    commands = scene.commands([_key(pygame.K_s)], game)
+    assert commands == [BuyItem("snare")]
+
+
 def test_draw_smoke_without_detector_hides_wisps() -> None:
     pygame.init()
     pygame.display.set_mode((640, 400))
@@ -68,3 +76,17 @@ def test_draw_smoke_with_detector_shows_wisps() -> None:
     surface = pygame.Surface((640, 400))
     scene.draw(surface, game, SpriteFactory(), TextRenderer())
     assert surface.get_at((320, 180)) != (24, 26, 34, 255)  # type: ignore[comparison-overlap]
+
+
+def test_draw_smoke_depot_hint_and_notice() -> None:
+    pygame.init()
+    pygame.display.set_mode((640, 400))
+    scene = CityMapScene()
+    game = new_game(6)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])
+    game.scene = SceneId.MAP
+    assert game.position == DEPOT_POS  # hint line only draws at the Depot
+    surface = pygame.Surface((640, 400))
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())  # exercises the hint line
+    game.notice = "snares only, at the Depot"
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())  # exercises the notice line

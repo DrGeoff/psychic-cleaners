@@ -46,6 +46,21 @@ def test_notice_set_on_rejection_and_cleared_on_success() -> None:
     assert game.notice is None
 
 
+def test_forged_low_bankroll_code_rejected_as_too_depleted() -> None:
+    # A legitimate win code is always > $10,000; a code decoding under the
+    # cheapest vehicle price ($2,000) can only be forged, and would otherwise
+    # strand the player in SHOP unable to afford any vehicle.
+    game = new_game(1234)
+    code = encode_account("Pat", 1_500)
+    events = game.tick([EnterAccount("Pat", code)], 0.0)
+    assert AccountRejected("account too depleted") in events
+    assert game.scene is SceneId.TITLE
+    assert game.notice == "account too depleted"
+    assert game.player_name == ""
+    assert game.wallet.balance == STARTING_BANKROLL
+    assert game.starting_bankroll == STARTING_BANKROLL
+
+
 def test_new_game_resets_starting_bankroll() -> None:
     game = new_game(1234)
     game.starting_bankroll = 42  # simulate leftover state from a previous restore

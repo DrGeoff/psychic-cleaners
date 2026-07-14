@@ -28,7 +28,7 @@ with. Your account code carries the bankroll into the next game.
 |-----------|------------------------------------------------------------------------------|
 | Title     | Type your name; `Tab` toggles new-franchise / account-code entry; `Enter` confirms |
 | Shop      | `Up`/`Down` select; `Enter` buy vehicle or item; `F` finish shopping           |
-| City map  | Arrow keys move the cursor; `Enter` travel; `B` deploy gummy bait on an alert  |
+| City map  | Arrow keys move the cursor; `Enter` travel; `B` deploy gummy bait on an alert; `S` buy a snare at the Depot |
 | Driving   | `Up`/`Down` change lane; `B` deploy gummy bait on an alert                     |
 | Busting   | `Left`/`Right` move cleaner or snare cursor; `Enter` place / lay snare; `Space` spring it; `B` deploy gummy bait on an alert |
 | Finale    | `Space` send the next runner past the mascot                                   |

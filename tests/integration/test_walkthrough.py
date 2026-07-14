@@ -1,8 +1,12 @@
 """Scripted FSM walkthrough: title -> shop -> (forced) map -> (forced)
 game over -> title.
 
-Forced scene assignments below are placeholders; Milestones 3-9 replace
-them one by one with real command-driven transitions.
+The forced scene/result assignments below are a deliberate FSM-skeleton
+shortcut: this test only exercises Game.tick's top-level scene dispatch and
+the world-clock gating (SHOP doesn't tick the clock, MAP does), so it jumps
+straight to each scene rather than driving the intervening gameplay. For
+realistic, fully command-driven playthroughs (shopping, driving, busting,
+the finale, winning and losing) see tests/integration/test_full_game.py.
 """
 
 from psychic_cleaners.core.events import Continue, NewGame, SceneChanged
@@ -18,12 +22,14 @@ def test_walkthrough_title_to_gameover_and_back() -> None:
     assert events == [SceneChanged(SceneId.SHOP)]
     assert game.clock.minutes == 0.0  # SHOP is not a world scene
 
-    # Shop -> map (forced until Milestone 3 wires FinishShopping).
+    # Shop -> map: forced directly (see module docstring) rather than driving
+    # FinishShopping through a real shopping trip.
     game.scene = SceneId.MAP
     game.tick([], dt_seconds=2.0)
     assert game.clock.minutes > 0.0  # world time flows on the map
 
-    # Map -> game over (forced until Milestone 9 wires the finale).
+    # Map -> game over: forced directly (see module docstring) rather than
+    # driving a full finale run.
     game.scene = SceneId.GAME_OVER
     game.result = "lost"
     events = game.tick([Continue()], dt_seconds=0.0)
