@@ -1,0 +1,46 @@
+[project]
+name = "psychic-cleaners"
+version = "0.1.0"
+description = "Clean-room retro remake: run a paranormal sanitation franchise"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pygame-ce>=2.5.7",
+]
+
+[project.scripts]
+psychic-cleaners = "psychic_cleaners.shell.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/psychic_cleaners"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "hypothesis",
+    "ruff",
+    "mypy",
+    "pre-commit",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+mypy_path = ["src"]
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=psychic_cleaners --cov-report=term-missing"
