@@ -12,40 +12,52 @@ Game.tick keeps the contract's canonical three-step shape:
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from psychic_cleaners.core.bust import BustOutcome, BustPhase, BustSim
 from psychic_cleaners.core.catalog import ITEMS, VEHICLES
 from psychic_cleaners.core.city import City
 from psychic_cleaners.core.clock import GameClock
 from psychic_cleaners.core.codec import AccountCodeError, decode_account
 from psychic_cleaners.core.constants import (
     CLEANER_COUNT,
+    CONTAINMENT_RIG_CAPACITY,
     DEPOT_POS,
     STARTING_BANKROLL,
     VACUUM_BOUNTY,
     WISP_TOWER_PSI_JUMP,
 )
 from psychic_cleaners.core.drive import DriveSim
-from psychic_cleaners.core.economy import Wallet
+from psychic_cleaners.core.economy import Wallet, bust_fee
 from psychic_cleaners.core.events import (
     AccountAccepted,
     AccountRejected,
     Arrived,
+    BustMissed,
     BuyItem,
+    CleanerSlimed,
     CleanersRestored,
     Command,
+    CommandRejected,
     Continue,
     EnterAccount,
     Event,
     FinaleUnlocked,
     FinishShopping,
+    GameLost,
+    GhostTrapped,
     GridPos,
+    HauntCleared,
     ItemBought,
+    LaySnare,
+    MoveCleaner,
     NewGame,
+    PlaceCleaner,
     PurchaseRejected,
     SceneChanged,
     SceneId,
     SelectVehicle,
     SetDestination,
     SnaresEmptied,
+    SpringSnare,
     Steer,
     TravelStarted,
     VehicleSelected,
@@ -69,7 +81,9 @@ class Game:
     starting_bankroll: int = STARTING_BANKROLL
     loadout: Loadout | None = None
     drive: DriveSim | None = None
+    bust: BustSim | None = None
     result: str | None = None
+    lose_reason: str | None = None  # set alongside result == "lost"; drawn by GAME_OVER
     notice: str | None = None  # last rejection message, drawn by title/shop scenes
     psi: PsiModel = field(default_factory=PsiModel)
     city: City = field(default_factory=City.new)
@@ -91,6 +105,12 @@ class Game:
             events.extend(world_events)
             if self.scene is SceneId.DRIVE and self.drive is not None:
                 events.extend(self._tick_drive(dt_seconds))
+            if (
+                self.scene is SceneId.BUST
+                and self.bust is not None
+                and self.bust.phase is BustPhase.ACTIVE
+            ):
+                events.extend(self.bust.tick(dt_seconds, self.rng))
             # (3) post-tick resolution: wisp PSI jumps, one-shot finale unlock
             for event in world_events:
                 if isinstance(event, WispReachedTower):
@@ -101,6 +121,25 @@ class Game:
             if self.drive is not None and self.drive.arrived:
                 assert self.destination is not None
                 events.extend(self._arrive_at(self.destination))
+            if self.bust is not None and self.bust.phase is BustPhase.RESOLVED:
+                events.extend(self._resolve_bust())
+            # Bankruptcy: the franchise folds only when it cannot field a snare by
+            # ANY means — none free, none full (full snares are emptied back to
+            # free at the Depot), and too broke to restock one at the Depot
+            # (Task 19's MAP-scene BuyItem("snare") flow).
+            if (
+                self.scene in (SceneId.MAP, SceneId.DRIVE, SceneId.BUST)
+                and self.loadout is not None
+                and self.free_snares() == 0
+                and self.snares_full == 0
+                and self.wallet.balance < ITEMS["snare"].price
+            ):
+                reason = "no snares left — the franchise folds"
+                self.result = "lost"
+                self.lose_reason = reason
+                events.append(GameLost(reason))
+                self.scene = SceneId.GAME_OVER
+                events.append(SceneChanged(SceneId.GAME_OVER))
         return events
 
     def _world_tick(self, dt_seconds: float) -> list[Event]:
@@ -132,6 +171,24 @@ class Game:
             events.extend(self._handle_map(command))
         elif self.scene is SceneId.DRIVE and isinstance(command, Steer) and self.drive is not None:
             self.drive.steer(command.delta)
+        elif self.scene is SceneId.BUST and self.bust is not None:
+            bust = self.bust
+            if isinstance(command, MoveCleaner):
+                bust.move(command.dx)
+            elif (
+                isinstance(command, PlaceCleaner)
+                and bust.phase
+                in (
+                    BustPhase.POSITION_LEFT,
+                    BustPhase.POSITION_RIGHT,
+                )
+            ) or (isinstance(command, LaySnare) and bust.phase is BustPhase.SNARE):
+                bust.place()
+            elif isinstance(command, SpringSnare):
+                if bust.phase is BustPhase.ACTIVE:
+                    bust.spring()
+                else:
+                    events.append(CommandRejected("no snare laid"))
 
     def _handle_title(self, command: Command) -> list[Event]:
         """Handle a command received while on the TITLE scene."""
@@ -259,10 +316,57 @@ class Game:
                 events.append(SceneChanged(scene=SceneId.MAP))
         # Task 30 inserts its tower elif here, then Task 25 its haunted-building
         # elif below it — both ABOVE the else.
+        elif (
+            pos in self.city.haunted_positions()
+            and self.free_snares() > 0
+            and self.able_cleaners() >= 2
+        ):
+            self.bust = BustSim()
+            self.scene = SceneId.BUST
+            events.append(SceneChanged(SceneId.BUST))
         else:
             if self.scene is not SceneId.MAP:
                 self.scene = SceneId.MAP
                 events.append(SceneChanged(scene=SceneId.MAP))
+        return events
+
+    def _resolve_bust(self) -> list[Event]:
+        bust = self.bust
+        loadout = self.loadout
+        assert bust is not None and loadout is not None
+        events: list[Event] = []
+        # The two cleaners fielded in this bust are the two lowest unslimed indices;
+        # bust.slimed_side 0/1 maps onto them in order.
+        unslimed = sorted(set(range(CLEANER_COUNT)) - self.slimed)
+        if bust.outcome is BustOutcome.CAUGHT:
+            if loadout.has("rig") and self.contained < CONTAINMENT_RIG_CAPACITY:
+                self.contained += 1
+            else:
+                self.snares_full += 1
+            fee = bust_fee(self.psi.value)
+            self.wallet.earn(fee)
+            events.append(GhostTrapped(fee))
+            self.city.clear_haunt(self.position)
+            events.append(HauntCleared(self.position))
+        elif bust.outcome is BustOutcome.MISSED:
+            # Wasted snare. Direct mutation per contract; the key exists because
+            # entering a bust required free_snares() > 0.
+            loadout.counts["snare"] -= 1
+            events.append(BustMissed())
+        elif bust.outcome is BustOutcome.SLIMED:
+            loadout.counts["snare"] -= 1
+            side = bust.slimed_side if bust.slimed_side is not None else 0
+            idx = unslimed[side]
+            self.slimed.add(idx)
+            events.append(CleanerSlimed(idx))
+        elif bust.outcome is BustOutcome.BACKFIRE:
+            loadout.counts["snare"] -= 1
+            for idx in unslimed[:2]:
+                self.slimed.add(idx)
+                events.append(CleanerSlimed(idx))
+        self.bust = None
+        self.scene = SceneId.MAP
+        events.append(SceneChanged(SceneId.MAP))
         return events
 
     def free_snares(self) -> int:
@@ -288,9 +392,11 @@ class Game:
         self.player_name = ""
         self.starting_bankroll = STARTING_BANKROLL
         self.result = None
+        self.lose_reason = None
         self.wallet = Wallet()
         self.loadout = None
         self.drive = None
+        self.bust = None
         self.notice = None
         self.psi = PsiModel()
         self.city = City.new()
