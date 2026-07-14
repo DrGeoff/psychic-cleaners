@@ -14,12 +14,16 @@ from dataclasses import dataclass, field
 
 from psychic_cleaners.core.catalog import ITEMS, VEHICLES
 from psychic_cleaners.core.clock import GameClock
+from psychic_cleaners.core.codec import AccountCodeError, decode_account
 from psychic_cleaners.core.constants import STARTING_BANKROLL
 from psychic_cleaners.core.economy import Wallet
 from psychic_cleaners.core.events import (
+    AccountAccepted,
+    AccountRejected,
     BuyItem,
     Command,
     Continue,
+    EnterAccount,
     Event,
     FinishShopping,
     ItemBought,
@@ -64,15 +68,34 @@ class Game:
 
     def _dispatch(self, command: Command, events: list[Event]) -> None:
         # Unknown or invalid commands for the current scene are ignored silently.
-        if self.scene is SceneId.TITLE and isinstance(command, NewGame):
-            self._reset()
-            self.player_name = command.name
-            self._change_scene(SceneId.SHOP, events)
+        if self.scene is SceneId.TITLE:
+            events.extend(self._handle_title(command))
         elif self.scene is SceneId.GAME_OVER and isinstance(command, Continue):
             self._reset()
             self._change_scene(SceneId.TITLE, events)
         elif self.scene is SceneId.SHOP:
             self._handle_shop(command, events)
+
+    def _handle_title(self, command: Command) -> list[Event]:
+        """Handle a command received while on the TITLE scene."""
+        if isinstance(command, NewGame):
+            self._reset()  # restores wallet, loadout, starting_bankroll, notice, ... (Task 7)
+            self.player_name = command.name
+            self.scene = SceneId.SHOP
+            return [SceneChanged(SceneId.SHOP)]
+        if isinstance(command, EnterAccount):
+            try:
+                bankroll = decode_account(command.name, command.code)
+            except AccountCodeError:
+                self.notice = "invalid account code"
+                return [AccountRejected("invalid account code")]
+            self.player_name = command.name
+            self.wallet.balance = bankroll
+            self.starting_bankroll = bankroll
+            self.notice = None
+            self.scene = SceneId.SHOP
+            return [AccountAccepted(command.name, bankroll), SceneChanged(SceneId.SHOP)]
+        return []
 
     def _handle_shop(self, command: Command, events: list[Event]) -> None:
         match command:
