@@ -146,3 +146,48 @@ def test_finale_squash_below_needed_loses_the_city() -> None:
     assert game.result == "lost"
     assert game.scene is SceneId.GAME_OVER
     assert game.finale is None
+
+
+def test_win_records_last_account_code_field() -> None:
+    game = _game_in_finale()
+    game.wallet.earn(5_000)  # balance 12_400 > starting 10_000
+    assert game.finale is not None
+    game.finale.inside = 1
+    game.tick([StartRun()], 0.0)
+    game.tick([], 3.25)
+    assert game.result == "won"
+    assert game.last_account_code is not None
+    assert decode_account("Alex", game.last_account_code) == game.wallet.balance
+    assert game.lose_reason is None
+
+
+def test_no_profit_records_lose_reason_field() -> None:
+    game = _game_in_finale()  # balance 7_400: no profit
+    assert game.finale is not None
+    game.finale.inside = 1
+    game.tick([StartRun()], 0.0)
+    game.tick([], 3.25)
+    assert game.result == "lost"
+    assert game.lose_reason == "the franchise never turned a profit"
+    assert game.last_account_code is None
+
+
+def test_too_few_cleaners_records_lose_reason_field() -> None:
+    game = _game_at_tower()
+    game.slimed.update({0, 1})
+    game.tick([SetDestination(TOWER_POS)], 0.0)
+    assert game.result == "lost"
+    assert game.lose_reason == "not enough able cleaners"
+
+
+def test_squash_loss_records_lose_reason_field() -> None:
+    game = _game_at_tower()
+    game.slimed.add(2)  # two able cleaners: the first squash resolves LOST
+    game.tick([SetDestination(TOWER_POS)], 0.0)
+    game.tick([], 1.2)  # one hop cycle: the crossing falls in a grounded window
+    game.tick([StartRun()], 0.0)
+    for _ in range(100):
+        if any(isinstance(e, RunnerSquashed) for e in game.tick([], 0.05)):
+            break
+    assert game.result == "lost"
+    assert game.lose_reason == "the Tower claimed the city"

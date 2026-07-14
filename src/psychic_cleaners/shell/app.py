@@ -8,10 +8,12 @@ import pygame
 from psychic_cleaners.core.events import SceneId
 from psychic_cleaners.core.game import new_game
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes import PlaceholderScene, Scene
+from psychic_cleaners.shell.scenes import Scene
 from psychic_cleaners.shell.scenes.busting import BustingScene
 from psychic_cleaners.shell.scenes.city_map import CityMapScene
 from psychic_cleaners.shell.scenes.driving import DrivingScene
+from psychic_cleaners.shell.scenes.finale import FinaleScene
+from psychic_cleaners.shell.scenes.gameover import GameOverScene
 from psychic_cleaners.shell.scenes.shop import ShopScene
 from psychic_cleaners.shell.scenes.title import TitleScene
 from psychic_cleaners.shell.text import TextRenderer
@@ -26,8 +28,8 @@ SCENES: Final[dict[SceneId, Scene]] = {
     SceneId.MAP: CityMapScene(),
     SceneId.DRIVE: DrivingScene(),
     SceneId.BUST: BustingScene(),
-    SceneId.FINALE: PlaceholderScene("FINALE"),
-    SceneId.GAME_OVER: PlaceholderScene("GAME_OVER"),
+    SceneId.FINALE: FinaleScene(),
+    SceneId.GAME_OVER: GameOverScene(),
 }
 
 

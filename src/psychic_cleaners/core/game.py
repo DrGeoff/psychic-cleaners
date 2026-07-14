@@ -96,8 +96,9 @@ class Game:
     bust: BustSim | None = None
     finale: FinaleSim | None = None
     result: str | None = None
-    lose_reason: str | None = None  # set alongside result == "lost"; drawn by GAME_OVER
     notice: str | None = None  # last rejection message, drawn by title/shop scenes
+    last_account_code: str | None = None  # endgame resolution: drawn by GameOverScene
+    lose_reason: str | None = None  # endgame resolution: drawn by GameOverScene
     psi: PsiModel = field(default_factory=PsiModel)
     city: City = field(default_factory=City.new)
     mascot: MascotModel = field(default_factory=MascotModel)
@@ -389,8 +390,10 @@ class Game:
             self.scene = SceneId.FINALE
             events.append(SceneChanged(SceneId.FINALE))
         else:
+            reason = "not enough able cleaners"
             self.result = "lost"
-            events.append(GameLost("not enough able cleaners"))
+            self.lose_reason = reason
+            events.append(GameLost(reason))
             self.scene = SceneId.GAME_OVER
             events.append(SceneChanged(SceneId.GAME_OVER))
 
@@ -405,14 +408,20 @@ class Game:
         outcome = self.finale.outcome
         if outcome is FinaleOutcome.WON:
             if self.wallet.balance > self.starting_bankroll:
+                code = encode_account(self.player_name, self.wallet.balance)
                 self.result = "won"
-                events.append(GameWon(encode_account(self.player_name, self.wallet.balance)))
+                self.last_account_code = code
+                events.append(GameWon(code))
             else:
+                reason = "the franchise never turned a profit"
                 self.result = "lost"
-                events.append(GameLost("the franchise never turned a profit"))
+                self.lose_reason = reason
+                events.append(GameLost(reason))
         elif outcome is FinaleOutcome.LOST:
+            reason = "the Tower claimed the city"
             self.result = "lost"
-            events.append(GameLost("the Tower claimed the city"))
+            self.lose_reason = reason
+            events.append(GameLost(reason))
         if outcome is not None:
             self.finale = None
             self.scene = SceneId.GAME_OVER
@@ -481,6 +490,7 @@ class Game:
         self.player_name = ""
         self.starting_bankroll = STARTING_BANKROLL
         self.result = None
+        self.last_account_code = None
         self.lose_reason = None
         self.wallet = Wallet()
         self.loadout = None

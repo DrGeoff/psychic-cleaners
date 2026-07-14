@@ -135,6 +135,24 @@ def _build_snare() -> pygame.Surface:
     return surf
 
 
+def _build_mascot() -> pygame.Surface:
+    """Sir Squish: a 48x64 pale-green gummy giant."""
+    surface = pygame.Surface((48, 64), pygame.SRCALPHA)
+    body = (150, 230, 160, 255)
+    shade = (104, 186, 120, 255)
+    ink = (30, 30, 40, 255)
+    pygame.draw.ellipse(surface, body, pygame.Rect(4, 22, 40, 42))  # torso
+    pygame.draw.ellipse(surface, shade, pygame.Rect(0, 30, 10, 18))  # left arm
+    pygame.draw.ellipse(surface, shade, pygame.Rect(38, 30, 10, 18))  # right arm
+    pygame.draw.ellipse(surface, shade, pygame.Rect(10, 54, 12, 10))  # left foot
+    pygame.draw.ellipse(surface, shade, pygame.Rect(26, 54, 12, 10))  # right foot
+    pygame.draw.circle(surface, body, (24, 16), 14)  # head
+    pygame.draw.circle(surface, ink, (18, 14), 3)  # left eye
+    pygame.draw.circle(surface, ink, (30, 14), 3)  # right eye
+    pygame.draw.line(surface, ink, (18, 22), (30, 22), 2)  # grin
+    return surface
+
+
 _BUILDERS: dict[str, Callable[[], pygame.Surface]] = {
     "logo": _build_logo,
     "cleaner": _build_cleaner,
@@ -151,6 +169,7 @@ _BUILDERS: dict[str, Callable[[], pygame.Surface]] = {
     "wisp.faint": _build_wisp_faint,
     "smudge": _build_smudge,
     "snare": _build_snare,
+    "mascot": _build_mascot,
 }
 
 
