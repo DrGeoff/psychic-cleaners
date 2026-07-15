@@ -4,7 +4,7 @@ import pygame
 import pytest
 
 from psychic_cleaners.core.bust import BustPhase, BustSim
-from psychic_cleaners.core.constants import CLEANER_SPEED
+from psychic_cleaners.core.constants import CLEANER_SPEED, MASCOT_ALERT_WINDOW
 from psychic_cleaners.core.events import (
     LaySnare,
     MoveCleaner,
@@ -13,9 +13,10 @@ from psychic_cleaners.core.events import (
     SpringSnare,
 )
 from psychic_cleaners.core.game import Game, new_game
+from psychic_cleaners.core.giant import MascotState
 from psychic_cleaners.shell.app import FPS, SCENES
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes.busting import BustingScene
+from psychic_cleaners.shell.scenes.busting import _HINTS, BustingScene
 from psychic_cleaners.shell.text import TextRenderer
 
 
@@ -137,3 +138,36 @@ def test_draw_smoke_in_every_phase(bust_game: Game) -> None:
     for phase in BustPhase:
         bust.phase = phase
         scene.draw(surface, bust_game, SpriteFactory(), TextRenderer())
+
+
+class _RectText(TextRenderer):
+    """TextRenderer that records the pixel rect of every message it draws."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rects: dict[str, pygame.Rect] = {}
+
+    def draw(
+        self,
+        surface: pygame.Surface,
+        message: str,
+        pos: tuple[int, int],
+        size: int = 16,
+        color: tuple[int, int, int] = (230, 230, 230),
+    ) -> None:
+        width, height = self._font(size).size(message)
+        self.rects[message] = pygame.Rect(pos[0], pos[1], width, height)
+        super().draw(surface, message, pos, size, color)
+
+
+def test_mascot_banner_does_not_overlap_the_bust_hint(bust_game: Game) -> None:
+    """An alert mid-bust must not overprint the phase hint into a jumble."""
+    _init_video()
+    bust_game.bust = BustSim(phase=BustPhase.ACTIVE, left_x=250.0, right_x=390.0, snare_x=320.0)
+    bust_game.mascot.state = MascotState.ALERT
+    bust_game.mascot.alert_remaining = MASCOT_ALERT_WINDOW  # fresh alert: banner ON
+    text = _RectText()
+    BustingScene().draw(pygame.Surface((640, 400)), bust_game, SpriteFactory(), text)
+    hint = text.rects[_HINTS[BustPhase.ACTIVE]]
+    banner = next(rect for msg, rect in text.rects.items() if msg.startswith("MASCOT INBOUND"))
+    assert not banner.colliderect(hint), (banner, hint)
