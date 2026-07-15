@@ -109,10 +109,19 @@ class App:
                 title_scene = SCENES[SceneId.TITLE]
                 if isinstance(title_scene, TitleScene):
                     title_scene.reset()
+                shop_scene = SCENES[SceneId.SHOP]
+                if isinstance(shop_scene, ShopScene):
+                    shop_scene.reset()
+                map_scene = SCENES[SceneId.MAP]
+                if isinstance(map_scene, CityMapScene):
+                    map_scene.reset()
             elif self._prev_scene is SceneId.TITLE:
                 self.audio.stop_music()
             self._prev_scene = self.game.scene
-        scene.draw(self.logical, self.game, self.gfx, self.text)
+        # Re-resolve after the tick: when a tick changes the scene, the
+        # transition frame must draw the NEW scene against the new game state,
+        # not the pre-tick scene that gathered this frame's commands.
+        SCENES[self.game.scene].draw(self.logical, self.game, self.gfx, self.text)
         pygame.transform.scale(self.logical, self.window.get_size(), self.window)
         pygame.display.flip()
 
