@@ -3,7 +3,7 @@
 import pytest
 
 from psychic_cleaners.core.constants import GAME_MINUTES_PER_REAL_SECOND
-from psychic_cleaners.core.events import Continue, NewGame, SceneChanged
+from psychic_cleaners.core.events import CommandRejected, Continue, NewGame, SceneChanged
 from psychic_cleaners.core.game import SceneId, new_game
 
 
@@ -17,6 +17,18 @@ def test_new_game_moves_title_to_shop() -> None:
     assert game.scene is SceneId.SHOP  # type: ignore[comparison-overlap]
     assert game.player_name == "Ada"
     assert SceneChanged(SceneId.SHOP) in events
+
+
+@pytest.mark.parametrize("name", ["", "   ", "\t\n"])
+def test_new_game_blank_name_rejected(name: str) -> None:
+    # A name that normalizes to empty must be rejected at the door: accepting
+    # it makes the win-time encode_account() call raise AccountCodeError.
+    game = new_game(1)
+    events = game.tick([NewGame(name=name)], dt_seconds=0.0)
+    assert game.scene is SceneId.TITLE
+    assert game.player_name == ""
+    assert any(isinstance(e, CommandRejected) for e in events)
+    assert not any(isinstance(e, SceneChanged) for e in events)
 
 
 def test_new_game_ignored_outside_title() -> None:
