@@ -277,6 +277,11 @@ class Game:
     def _handle_title(self, command: Command) -> list[Event]:
         """Handle a command received while on the TITLE scene."""
         if isinstance(command, NewGame):
+            if not command.name.split():
+                # A name that normalizes to empty would make the win-time
+                # encode_account() call raise AccountCodeError.
+                self._set_notice("name must not be empty")
+                return [CommandRejected("name must not be empty")]
             self._reset()  # restores wallet, loadout, starting_bankroll, notice, ... (Task 7)
             self.player_name = command.name
             self.scene = SceneId.SHOP
@@ -305,8 +310,12 @@ class Game:
     def _handle_shop(self, command: Command, events: list[Event]) -> None:
         match command:
             case SelectVehicle(vehicle_id=vehicle_id):
-                vehicle = VEHICLES[vehicle_id]
-                if self.loadout is not None:
+                vehicle = VEHICLES.get(vehicle_id)
+                if vehicle is None:
+                    reason = "unknown vehicle"
+                    self._set_notice(reason)
+                    events.append(PurchaseRejected(reason))
+                elif self.loadout is not None:
                     reason = "vehicle already chosen"
                     self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
@@ -321,11 +330,16 @@ class Game:
                     self.notice_remaining = 0.0
                     events.append(VehicleSelected(vehicle_id))
             case BuyItem(item_id=item_id):
-                if self.loadout is None:
+                item = ITEMS.get(item_id)
+                if item is None:
+                    reason = "unknown item"
+                    self._set_notice(reason)
+                    events.append(PurchaseRejected(reason))
+                elif self.loadout is None:
                     reason = "choose a vehicle first"
                     self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
-                elif not self.wallet.can_afford(ITEMS[item_id].price):
+                elif not self.wallet.can_afford(item.price):
                     reason = "cannot afford"
                     self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
@@ -334,7 +348,7 @@ class Game:
                     self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
                 else:
-                    self.wallet.spend(ITEMS[item_id].price)
+                    self.wallet.spend(item.price)
                     self.loadout.add(item_id)
                     self.notice = None
                     self.notice_remaining = 0.0

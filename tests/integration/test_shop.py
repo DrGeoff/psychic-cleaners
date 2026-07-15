@@ -89,6 +89,25 @@ def test_full_vehicle_rejects_item() -> None:
     assert game.loadout.count("snare") == 2
 
 
+def test_unknown_vehicle_id_rejected() -> None:
+    # Core must reject unknown catalog ids with an event, not raise KeyError
+    # (spec: invalid commands produce rejection Events — not exceptions).
+    game = _shop_game()
+    events = game.tick([SelectVehicle("tank")], 0.0)
+    assert PurchaseRejected("unknown vehicle") in events
+    assert game.loadout is None
+    assert game.wallet.balance == 10_000
+
+
+def test_unknown_item_id_rejected() -> None:
+    game = _shop_game()
+    game.tick([SelectVehicle("compact")], 0.0)
+    balance = game.wallet.balance
+    events = game.tick([BuyItem("bazooka")], 0.0)
+    assert PurchaseRejected("unknown item") in events
+    assert game.wallet.balance == balance
+
+
 def test_finish_without_vehicle_stays_in_shop() -> None:
     game = _shop_game()
     events = game.tick([FinishShopping()], 0.0)
