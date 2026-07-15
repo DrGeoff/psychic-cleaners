@@ -40,7 +40,10 @@ class FinaleSim:
 
     @property
     def remaining_outside(self) -> int:
-        return self.able_cleaners - self.inside - self.squashed
+        # A mid-run runner is on the field, not waiting outside — counting him
+        # here would double-count him against `active` in `outcome`.
+        active = 1 if self.runner_x is not None else 0
+        return self.able_cleaners - self.inside - self.squashed - active
 
     @property
     def airborne(self) -> bool:
