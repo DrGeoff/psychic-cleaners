@@ -143,6 +143,26 @@ def test_finish_snareless_and_broke_warns_once_then_folds() -> None:
     _assert_scene(game, SceneId.GAME_OVER)
 
 
+def test_finish_snareless_with_full_slots_warns_once_then_folds() -> None:
+    # The doom warning must also cover the solvent-but-slot-full shape: money
+    # for a snare but no room to carry one folds on the first MAP tick just
+    # like the broke shape, and deserves the same one-shot warning.
+    game = _shop_game()
+    game.tick([SelectVehicle("compact")], 0.0)  # capacity 7, 8000 left
+    game.tick([BuyItem("bait")] * 7, 0.0)  # 7 slots of bait: full, 5200 left
+    assert game.wallet.balance == 5_200
+    reason = "no snare and no room for one — the franchise will fold (F again to leave anyway)"
+    events = game.tick([FinishShopping()], 0.0)  # first press: warned, stays
+    _assert_scene(game, SceneId.SHOP)
+    assert SceneChanged(SceneId.MAP) not in events
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
+    events = game.tick([FinishShopping()], 0.0)  # second press: leaves and folds
+    assert SceneChanged(SceneId.MAP) in events
+    assert GameLost("no snares left — the franchise folds") in events
+    _assert_scene(game, SceneId.GAME_OVER)
+
+
 def test_shop_fold_warning_resets_on_new_game() -> None:
     game = _shop_game()
     game.tick([SelectVehicle("compact"), BuyItem("rig")], 0.0)  # doomed loadout

@@ -1,12 +1,12 @@
 """Top-level game state and scene FSM.
 
-This is the skeleton: fields and handlers for TITLE and GAME_OVER only.
-Later tasks ADD fields to Game (wallet, psi, city, mascot, loadout, drive,
-bust, finale, ...) plus per-scene command handlers in _dispatch, and MUST
-extend _reset() with every added field in the same task.
+Game is the whole simulation behind one aggregate: the wallet, psi, city,
+mascot, loadout, and the per-scene sims (drive, bust, finale), dispatched
+by scene in _dispatch. Commands come in, Events come out; invalid commands
+produce rejection Events with reasons — never exceptions.
 
 Game.tick keeps the contract's canonical three-step shape:
-1. command dispatch, 2. scene ticking, 3. post-tick resolution.
+1. command dispatch, 2. scene/world ticking, 3. post-tick resolution.
 """
 
 from collections.abc import Sequence
@@ -95,6 +95,13 @@ _WORLD_SCENES: Final[tuple[SceneId, ...]] = (SceneId.MAP, SceneId.DRIVE, SceneId
 # win codes are always > $10,000, so this only ever rejects forged codes.
 _CHEAPEST_VEHICLE_PRICE: Final[int] = min(vehicle.price for vehicle in VEHICLES.values())
 
+# Tower turn-away notice while the pair are still walking. Named so the
+# FinaleUnlocked handler can recognize and clear exactly this message — its
+# "opens when they arrive" claim goes stale the moment they do.
+_CONVERGING_NOTICE: Final[str] = (
+    "the Warden and the Locksmith are converging — the Tower opens when they arrive"
+)
+
 
 @dataclass
 class Game:
@@ -128,7 +135,7 @@ class Game:
     def tick(self, commands: Sequence[Command], dt_seconds: float) -> list[Event]:
         events: list[Event] = []
         # Capture the scene BEFORE dispatch: a mid-tick arrival that switches to
-        # FINALE must not also finale-tick in the same call (Task 7 tick shape).
+        # FINALE must not also finale-tick in the same call.
         scene = self.scene
         # 1. Command dispatch: per-command, scene-gated handlers.
         for command in commands:
@@ -161,6 +168,11 @@ class Game:
                 self.convergence.tick(dt_seconds)
                 if self.convergence.arrived:
                     self.finale_unlocked = True
+                    if self.notice == _CONVERGING_NOTICE:
+                        # The Tower just opened: don't let a still-live turn-away
+                        # notice claim otherwise. Unrelated notices stay up.
+                        self.notice = None
+                        self.notice_remaining = 0.0
                     events.append(FinaleUnlocked())
             if self.drive is not None and self.drive.arrived:
                 assert self.destination is not None
@@ -169,14 +181,17 @@ class Game:
                 events.extend(self._resolve_bust())
             # Bankruptcy: the franchise folds only when it cannot field a snare by
             # ANY means — none free, none full (full snares are emptied back to
-            # free at the Depot), and too broke to restock one at the Depot
-            # (Task 19's MAP-scene BuyItem("snare") flow).
+            # free at the Depot), and the Depot restock (MAP-scene
+            # BuyItem("snare")) is unreachable: too broke, or every vehicle slot
+            # is taken by other gear.
             if (
                 self.scene in _WORLD_SCENES
                 and self.loadout is not None
                 and self.free_snares() == 0
                 and self.snares_full == 0
-                and self.wallet.balance < ITEMS["snare"].price
+                and (
+                    self.wallet.balance < ITEMS["snare"].price or not self.loadout.can_add("snare")
+                )
             ):
                 reason = "no snares left — the franchise folds"
                 self.result = "lost"
@@ -292,7 +307,7 @@ class Game:
                 # encode_account() call raise AccountCodeError.
                 self._set_notice("name must not be empty")
                 return [CommandRejected("name must not be empty")]
-            self._reset()  # restores wallet, loadout, starting_bankroll, notice, ... (Task 7)
+            self._reset()  # restores wallet, loadout, starting_bankroll, notice, ...
             self.player_name = command.name
             self.scene = SceneId.SHOP
             return [SceneChanged(SceneId.SHOP)]
@@ -364,20 +379,23 @@ class Game:
                     self.notice_remaining = 0.0
                     events.append(ItemBought(item_id))
             case FinishShopping():
+                too_broke = not self.wallet.can_afford(ITEMS["snare"].price)
                 if self.loadout is None:
                     pass  # no vehicle yet: silently stay in the shop (existing contract)
                 elif (
                     self.loadout.count("snare") == 0
-                    and not self.wallet.can_afford(ITEMS["snare"].price)
+                    and (too_broke or not self.loadout.can_add("snare"))
                     and not self.shop_fold_warned
                 ):
-                    # Leaving snare-less AND too broke to restock one at the Depot
-                    # trips the bankruptcy fold on the very first MAP tick. Warn
-                    # once; a second press lets the doomed franchise leave and
-                    # fold with its own clear reason instead of soft-locking SHOP.
+                    # Leaving snare-less with no way to restock one at the Depot
+                    # (too broke, or no free slot for one) trips the bankruptcy
+                    # fold on the very first MAP tick. Warn once; a second press
+                    # lets the doomed franchise leave and fold with its own clear
+                    # reason instead of soft-locking SHOP.
                     self.shop_fold_warned = True
+                    shape = "no funds" if too_broke else "no room for one"
                     reason = (
-                        "no snare and no funds — the franchise will fold (F again to leave anyway)"
+                        f"no snare and {shape} — the franchise will fold (F again to leave anyway)"
                     )
                     self._set_notice(reason)
                     events.append(CommandRejected(reason))
@@ -430,8 +448,9 @@ class Game:
     def _arrive_at(self, pos: GridPos) -> list[Event]:
         """Arrival routing: an if/elif chain ending in an `else` that routes to MAP.
 
-        Later tasks insert their `elif` branches BETWEEN the depot branch and the
-        final `else` (tower before haunted). Every arrival appends Arrived(pos).
+        Most specific destination first — depot, then tower, then haunted —
+        falling through to a plain return to MAP. Every arrival appends
+        Arrived(pos).
         """
         self.position = pos
         self.destination = None
@@ -451,9 +470,7 @@ class Game:
             if self.scene is not SceneId.MAP:
                 self._change_scene(SceneId.MAP, events)
             if self.convergence is not None:
-                reason = (
-                    "the Warden and the Locksmith are converging — the Tower opens when they arrive"
-                )
+                reason = _CONVERGING_NOTICE
             else:
                 reason = "the Tower is sealed — return when the city's residue peaks"
             self._set_notice(reason)
@@ -588,8 +605,8 @@ class Game:
     def _reset(self) -> None:
         """Reinitialize every field except rng to a fresh TITLE state.
 
-        CONVENTION: every later task that adds a Game field MUST extend
-        this method in the same task.
+        CONVENTION: every field added to Game MUST also be reinitialized
+        here, in the same change, or it leaks into the next playthrough.
         """
         self.clock = GameClock()
         self.scene = SceneId.TITLE

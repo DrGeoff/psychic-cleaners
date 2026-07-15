@@ -18,6 +18,7 @@ from psychic_cleaners.core.events import (
     ConvergenceStarted,
     Event,
     FinaleUnlocked,
+    GameLost,
     ItemBought,
     NewGame,
     PurchaseRejected,
@@ -158,6 +159,39 @@ def test_tower_sealed_while_the_pair_converge() -> None:
     assert game.scene is SceneId.MAP
 
 
+def test_converging_notice_cleared_when_finale_unlocks() -> None:
+    # The turn-away notice claims the Tower "opens when they arrive"; the
+    # moment FinaleUnlocked fires that claim is stale and must not linger for
+    # the rest of its 6-second lifetime.
+    game = _map_game(8)
+    game.psi.spike(float(PSI_MAX))
+    game.tick([], 0.0)  # summons the pair
+    game.tick([], 20.0)  # the far corner is ~21 real seconds out: nearly there
+    game.position = TOWER_POS
+    reason = "the Warden and the Locksmith are converging — the Tower opens when they arrive"
+    events = game.tick([SetDestination(TOWER_POS)], 0.0)
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
+    walk = game.tick([], 2.0)  # arrival, well inside the notice's lifetime
+    assert any(isinstance(e, FinaleUnlocked) for e in walk)
+    assert game.notice is None
+
+
+def test_unrelated_notice_survives_finale_unlock() -> None:
+    # Only the converging message is stale once the Tower opens; any other
+    # live notice must not be eaten by the unlock.
+    game = _map_game(8)
+    game.psi.spike(float(PSI_MAX))
+    game.tick([], 0.0)  # summons the pair
+    game.tick([], 20.0)
+    assert game.position == DEPOT_POS
+    events = game.tick([BuyItem("vacuum")], 0.0)  # right place, wrong item
+    assert PurchaseRejected("snares only, at the Depot") in events
+    walk = game.tick([], 2.0)  # arrival: FinaleUnlocked fires
+    assert any(isinstance(e, FinaleUnlocked) for e in walk)
+    assert game.notice == "snares only, at the Depot"
+
+
 def test_set_destination_to_neighbour_starts_a_drive() -> None:
     # Milestone 6 (Task 21) replaced the Milestone 5 instant-travel placeholder:
     # SetDestination to a different cell now starts a DriveSim and switches to
@@ -221,6 +255,33 @@ def test_notice_cleared_once_scene_changes_after_depot_rejection() -> None:
     assert game.scene is SceneId.DRIVE
     assert any(isinstance(e, SceneChanged) for e in events)
     assert game.notice is None
+
+
+def test_snareless_full_vehicle_folds_despite_funds() -> None:
+    # A solvent player with zero snares whose slots are FULL of non-snare gear
+    # can never field a snare: the Depot restock rejects with "no room in
+    # vehicle", so without folding here the franchise would be dead weight
+    # until the finale unlocks.
+    game = _map_game(15)
+    game.loadout = Loadout(vehicle=VEHICLES["compact"])  # capacity 7
+    for item_id in ("detector", "lens", "sensor", "vacuum", "rig"):  # 1+1+1+1+3 = 7 slots
+        game.loadout.add(item_id)
+    assert not game.loadout.can_add("snare")
+    assert game.wallet.balance == 10_000  # plenty for a snare, but nowhere to put it
+    events = game.tick([], 0.0)
+    assert GameLost("no snares left — the franchise folds") in events
+    assert game.scene is SceneId.GAME_OVER
+
+
+def test_snareless_solvent_vehicle_with_room_does_not_fold() -> None:
+    # The complementary shape: zero snares but money AND a free slot means the
+    # Depot restock is still available, so the franchise must keep going.
+    game = _map_game(16)
+    assert game.loadout is not None
+    assert game.loadout.can_add("snare")
+    events = game.tick([], 0.0)
+    assert not any(isinstance(e, GameLost) for e in events)
+    assert game.scene is SceneId.MAP
 
 
 def test_depot_restock_rejects_other_items_and_other_places() -> None:
