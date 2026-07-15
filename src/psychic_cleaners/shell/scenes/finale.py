@@ -64,4 +64,6 @@ class FinaleScene:
             text.draw(surface, f"INSIDE: {sim.inside}", (16, 12))
             text.draw(surface, f"SQUASHED: {sim.squashed}", (16, 32))
             text.draw(surface, f"REMAINING: {sim.remaining_outside}", (16, 52))
-        text.draw(surface, "SPACE: send cleaner", (16, 380))
+            if sim.runner_x is None and sim.remaining_outside > 0:
+                # Only prompt when SPACE would actually send someone.
+                text.draw(surface, "SPACE: send cleaner", (16, 380))

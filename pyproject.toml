@@ -40,6 +40,9 @@ strict = true
 files = ["src", "tests"]
 mypy_path = ["src"]
 explicit_package_bases = true
+# Standalone scripted playtests drive the real App loosely (monkeypatched
+# hooks, dynamic attributes); they are ruff-clean but not strict-typed.
+exclude = ["tests/playtests/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

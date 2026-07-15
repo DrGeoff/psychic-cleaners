@@ -14,3 +14,6 @@ wheels/
 .mypy_cache/
 .ruff_cache/
 .coverage
+
+# Scripted-playtest screenshot output
+tests/playtests/shots*/
