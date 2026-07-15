@@ -102,7 +102,9 @@ class BustingScene:
         if beams is not None:
             for start, end in beams:
                 pygame.draw.line(surface, (120, 220, 255), start, end, 3)
-        text.draw(surface, _HINTS[bust.phase], (20, 12), size=16)
+        # Hint sits on the bottom pavement strip (like the finale's prompt) so
+        # the top-of-screen mascot banner can never overprint it.
+        text.draw(surface, _HINTS[bust.phase], (20, 380), size=16)
         _draw_mascot_banner(surface, game, text)
 
 
