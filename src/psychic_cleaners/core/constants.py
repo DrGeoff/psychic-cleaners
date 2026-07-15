@@ -53,7 +53,7 @@ BEAM_CROSS_GHOST_Y: Final[float] = 320.0
 BUST_GROUND_Y: Final[float] = 360.0
 BEAM_TOP_Y: Final[float] = 120.0
 BEAM_MAX_TILT: Final[float] = 140.0
-GHOST_DRIFT_SPEED: Final[float] = 60.0
+GHOST_DRIFT_SPEED: Final[float] = 140.0  # must exceed GHOST_REPEL_SPEED or SLIMED is unreachable
 GHOST_SINK_SPEED: Final[float] = 8.0
 GHOST_REPEL_SPEED: Final[float] = 90.0
 SLIME_RANGE: Final[float] = 28.0
@@ -63,6 +63,9 @@ CLEANER_SPEED: Final[float] = 180.0  # px/sec while positioning
 BUST_MIN_X: Final[float] = 40.0
 BUST_MAX_X: Final[float] = 600.0
 BEAM_AIM_SPREAD: Final[float] = 8.0  # keeps the two beam tips from meeting at one point
+# Failsafe: must exceed the slowest natural backfire — sinking from BEAM_TOP_Y
+# to BEAM_CROSS_GHOST_Y takes (320 - 120) / 8 = 25 s — so it never preempts it.
+BUST_TIMEOUT_SECONDS: Final[float] = 45.0
 
 # mascot (Sir Squish)
 MASCOT_CHANCE_PER_MINUTE_PER_1000_PSI: Final[float] = 0.10

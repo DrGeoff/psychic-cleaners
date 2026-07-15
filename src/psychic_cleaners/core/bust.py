@@ -12,6 +12,7 @@ from psychic_cleaners.core.constants import (
     BUST_GROUND_Y,
     BUST_MAX_X,
     BUST_MIN_X,
+    BUST_TIMEOUT_SECONDS,
     GHOST_DRIFT_SPEED,
     GHOST_REPEL_SPEED,
     GHOST_SINK_SPEED,
@@ -57,6 +58,7 @@ class BustSim:
     ghost_y: float = 160.0
     outcome: BustOutcome | None = None
     slimed_side: int | None = None  # 0 = left cleaner, 1 = right cleaner
+    active_seconds: float = 0.0
 
     def move(self, dx: float) -> None:
         if self.phase in _MOVABLE_PHASES:
@@ -106,10 +108,13 @@ class BustSim:
         # Drift and sink.
         self.ghost_x += rng.uniform(-1.0, 1.0) * GHOST_DRIFT_SPEED * dt_seconds
         self.ghost_y += GHOST_SINK_SPEED * dt_seconds
-        # Repel horizontally away from the nearer beam when it is close.
-        nearer = min((left_x, right_x), key=lambda x: abs(self.ghost_x - x))
+        # Repel horizontally away from the nearer beam when it is close, always
+        # toward the farther cleaner: a ghost that escaped outside the pair is
+        # herded back between them rather than pinned just past the repel zone,
+        # where no outcome could ever reach it.
+        nearer, farther = sorted((left_x, right_x), key=lambda x: abs(self.ghost_x - x))
         if abs(self.ghost_x - nearer) <= SNARE_WIDTH:
-            away = 1.0 if self.ghost_x >= nearer else -1.0
+            away = 1.0 if farther >= nearer else -1.0
             self.ghost_x += away * GHOST_REPEL_SPEED * dt_seconds
         self.ghost_x = _clamp(self.ghost_x, BUST_MIN_X, BUST_MAX_X)
         self.ghost_y = _clamp(self.ghost_y, BEAM_TOP_Y, BUST_GROUND_Y)
@@ -137,5 +142,12 @@ class BustSim:
                 self.outcome = BustOutcome.SLIMED
                 self.slimed_side = side
                 self.phase = BustPhase.RESOLVED
-                break
+                return []
+        # Failsafe: whatever the dynamics do, an ACTIVE bust that nothing has
+        # resolved times out as MISSED — the ghost slips away and the snare is
+        # wasted, matching the MISSED cost in game._resolve_bust.
+        self.active_seconds += dt_seconds
+        if self.active_seconds >= BUST_TIMEOUT_SECONDS:
+            self.outcome = BustOutcome.MISSED
+            self.phase = BustPhase.RESOLVED
         return []

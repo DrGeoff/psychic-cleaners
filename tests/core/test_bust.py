@@ -1,5 +1,7 @@
 """Tests for the bust simulation."""
 
+from collections.abc import Sequence
+
 from psychic_cleaners.core.bust import BustOutcome, BustPhase, BustSim
 from psychic_cleaners.core.constants import (
     BEAM_AIM_SPREAD,
@@ -9,12 +11,31 @@ from psychic_cleaners.core.constants import (
     BUST_GROUND_Y,
     BUST_MAX_X,
     BUST_MIN_X,
+    BUST_TIMEOUT_SECONDS,
     SLIME_RANGE,
     SNARE_TRIGGER_Y,
     SNARE_WIDTH,
 )
 from psychic_cleaners.core.events import BeamsCrossed
 from psychic_cleaners.core.rng import make_rng
+
+_TIMEOUT_TICKS = int(BUST_TIMEOUT_SECONDS * 60) + 2  # +2 absorbs 1/60 float accrual error
+
+
+class _StillRng:
+    """Rng stub whose uniform() is always 0: the ghost sinks but never drifts."""
+
+    def random(self) -> float:
+        return 0.0
+
+    def randint(self, a: int, b: int) -> int:
+        return a
+
+    def uniform(self, a: float, b: float) -> float:
+        return 0.0
+
+    def choice[T](self, seq: Sequence[T]) -> T:
+        return seq[0]
 
 
 def _active_sim(left: float = 200.0, right: float = 440.0, snare: float = 320.0) -> BustSim:
@@ -197,6 +218,84 @@ def test_ghost_slimes_right_cleaner_at_ground() -> None:
     sim.tick(1 / 60, make_rng(3))
     assert sim.outcome is BustOutcome.SLIMED
     assert sim.slimed_side == 1
+
+
+def test_ghost_escaped_outside_the_pair_still_resolves() -> None:
+    # Regression: the old repel pushed away from the nearer cleaner in whatever
+    # direction the ghost already was, so a ghost that slipped OUTSIDE the pair
+    # was shoved further out and parked just past the repel zone forever — no
+    # outcome could reach it. The repel now herds it back toward the farther
+    # cleaner, so this exact configuration (formerly ACTIVE for 120+ s) resolves
+    # through the dynamics, well before the timeout failsafe.
+    sim = BustSim(
+        phase=BustPhase.ACTIVE,
+        left_x=320.0,
+        right_x=590.0,
+        snare_x=600.0,
+        ghost_x=250.0,
+        ghost_y=350.0,
+    )
+    rng = make_rng(0)
+    for _ in range(_TIMEOUT_TICKS):
+        sim.tick(1 / 60, rng)
+        if sim.phase is BustPhase.RESOLVED:
+            break
+    assert sim.phase is BustPhase.RESOLVED
+    assert sim.outcome is not None
+    assert sim.active_seconds < BUST_TIMEOUT_SECONDS
+
+
+def test_unsprung_busts_resolve_and_both_hazards_are_live() -> None:
+    # Sweep placements x seeds with the player never springing: every bust must
+    # resolve within the timeout, and BOTH passive hazards must be reachable
+    # through the dynamics alone — SLIMED was previously impossible because the
+    # repel speed always beat the maximum drift step.
+    placements = [
+        (200.0, 440.0),
+        (100.0, 540.0),
+        (280.0, 360.0),
+        (150.0, 300.0),
+        (340.0, 560.0),
+        (60.0, 200.0),
+    ]
+    outcomes: set[BustOutcome] = set()
+    for left, right in placements:
+        for seed in range(30):
+            sim = _active_sim(left=left, right=right, snare=(left + right) / 2)
+            rng = make_rng(seed)
+            for _ in range(_TIMEOUT_TICKS):
+                sim.tick(1 / 60, rng)
+                if sim.phase is BustPhase.RESOLVED:
+                    break
+            assert sim.phase is BustPhase.RESOLVED, (left, right, seed)
+            assert sim.outcome is not None
+            outcomes.add(sim.outcome)
+    assert BustOutcome.SLIMED in outcomes
+    assert BustOutcome.BACKFIRE in outcomes
+
+
+def test_timeout_resolves_missed_when_nothing_else_happens() -> None:
+    # A driftless ghost parked outside the pair (beyond SNARE_WIDTH of either
+    # cleaner) triggers nothing; the failsafe resolves it MISSED — a wasted
+    # snare — at exactly BUST_TIMEOUT_SECONDS. dt=0.25 is binary-exact, so the
+    # accrued time hits 45.0 on the 180th tick with no float slop.
+    sim = BustSim(
+        phase=BustPhase.ACTIVE,
+        left_x=320.0,
+        right_x=590.0,
+        snare_x=600.0,
+        ghost_x=250.0,
+        ghost_y=350.0,
+    )
+    rng = _StillRng()
+    ticks_to_timeout = int(BUST_TIMEOUT_SECONDS / 0.25)
+    for _ in range(ticks_to_timeout - 1):
+        sim.tick(0.25, rng)
+        assert sim.phase is BustPhase.ACTIVE
+    sim.tick(0.25, rng)
+    assert sim.phase is BustPhase.RESOLVED
+    assert sim.outcome is BustOutcome.MISSED
+    assert sim.active_seconds == BUST_TIMEOUT_SECONDS
 
 
 def test_ghost_stays_inside_clamp_bounds_over_many_ticks() -> None:
