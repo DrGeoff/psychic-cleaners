@@ -100,6 +100,41 @@ def test_car_marker_visible_when_parked_at_depot() -> None:
     assert marker_pixels > 0
 
 
+def test_tower_sprite_does_not_cover_building_below() -> None:
+    # Fix: the map tower must fit its own cell so the haunting at (5, 4),
+    # directly below TOWER_POS (5, 3), stays visible instead of being
+    # covered by the full-size 56x96 tower sprite. The comparison uses an
+    # interior sub-rect (inset from the cell edges) rather than the whole
+    # cell rect: the old tower sprite's non-rectangular silhouette already
+    # leaves a few edge pixels of the building visible even when it covers
+    # the bulk of the cell, so a whole-cell-bytes comparison would pass
+    # even with the bug present. The centre of the cell is fully covered
+    # by the old tower and is where the fix must make a difference.
+    pygame.init()
+    pygame.display.set_mode((640, 400))
+    below_tower = (5, 4)
+    cell = pygame.Rect(40 + 5 * 56 + 4, 12 + 4 * 56 + 4, 48, 48)
+    assert cell == _cell_rect(below_tower)
+    interior = cell.inflate(-24, -24)  # centre 24x24, well clear of tower's edges
+
+    def render(haunted: bool) -> pygame.Surface:
+        scene = CityMapScene()
+        game = new_game(8)
+        game.loadout = Loadout(vehicle=VEHICLES["hearse"])  # no detector
+        game.scene = SceneId.MAP
+        if haunted:
+            game.city.buildings[below_tower].haunted = True
+        surface = pygame.Surface((640, 400))
+        scene.draw(surface, game, SpriteFactory(), TextRenderer())
+        return surface
+
+    haunted_surface = render(haunted=True)
+    clear_surface = render(haunted=False)
+    haunted_bytes = pygame.image.tobytes(haunted_surface.subsurface(interior), "RGBA")
+    clear_bytes = pygame.image.tobytes(clear_surface.subsurface(interior), "RGBA")
+    assert haunted_bytes != clear_bytes
+
+
 def test_draw_smoke_depot_hint_and_notice() -> None:
     pygame.init()
     pygame.display.set_mode((640, 400))

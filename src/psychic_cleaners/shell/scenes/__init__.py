@@ -4,6 +4,7 @@ from typing import Protocol
 
 import pygame
 
+from psychic_cleaners.core.constants import MASCOT_ALERT_WINDOW
 from psychic_cleaners.core.events import Command, Continue
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.core.giant import MascotState
@@ -25,7 +26,8 @@ def _draw_mascot_banner(surface: pygame.Surface, game: Game, text: TextRenderer)
     """Flashing mascot-alert banner; draws nothing unless the mascot is in ALERT."""
     if game.mascot.state is not MascotState.ALERT:
         return
-    if int(game.mascot.alert_remaining * 2) % 2 != 0:
+    elapsed = MASCOT_ALERT_WINDOW - game.mascot.alert_remaining
+    if int(elapsed * 2) % 2 != 0:
         return  # off phase of the flash
     charges = game.loadout.bait_charges if game.loadout is not None else 0
     banner = f"MASCOT INBOUND — B: BAIT ({charges} left)"

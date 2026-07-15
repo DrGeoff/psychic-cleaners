@@ -136,6 +136,13 @@ def _build_tower() -> pygame.Surface:
     return surf
 
 
+def _build_tower_map() -> pygame.Surface:
+    # The map cell is only 48px tall; the full 56x96 tower would spill into
+    # the cell below it, hiding a haunting there. Scale it down to fit its
+    # own cell (aspect preserved: 56x96 -> 28x48) for the map view only.
+    return pygame.transform.scale(_build_tower(), (28, 48))
+
+
 def _build_depot() -> pygame.Surface:
     surf = _surface(56, 48)
     pygame.draw.rect(surf, (150, 60, 60), pygame.Rect(2, 14, 52, 34))
@@ -217,6 +224,7 @@ _BUILDERS: Final[dict[str, Callable[[], pygame.Surface]]] = {
     "building": _build_building,
     "building.haunted": _build_building_haunted,
     "tower": _build_tower,
+    "tower.map": _build_tower_map,
     "depot": _build_depot,
     "mascot": _build_mascot,
     "snare": _build_snare,

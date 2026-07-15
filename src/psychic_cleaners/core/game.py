@@ -23,6 +23,7 @@ from psychic_cleaners.core.constants import (
     CONTAINMENT_RIG_CAPACITY,
     DEPOT_POS,
     FINALE_NEEDED_INSIDE,
+    NOTICE_LIFETIME_SECONDS,
     STARTING_BANKROLL,
     STOMP_FINE,
     STOMP_PSI_SPIKE,
@@ -106,6 +107,7 @@ class Game:
     finale: FinaleSim | None = None
     result: str | None = None
     notice: str | None = None  # last rejection message, drawn by title/shop/map scenes
+    notice_remaining: float = 0.0  # real seconds until `notice` auto-clears on MAP/DRIVE/BUST
     last_account_code: str | None = None  # endgame resolution: drawn by GameOverScene
     lose_reason: str | None = None  # endgame resolution: drawn by GameOverScene
     psi: PsiModel = field(default_factory=PsiModel)
@@ -175,11 +177,28 @@ class Game:
 
     def _world_tick(self, dt_seconds: float) -> list[Event]:
         self.clock.advance(dt_seconds)
+        if self.notice is not None:
+            # Notices set on TITLE/SHOP don't reach here (those scenes don't
+            # world-tick); only MAP/DRIVE/BUST notices decay and expire.
+            self.notice_remaining -= dt_seconds
+            if self.notice_remaining <= 0:
+                self.notice = None
+                self.notice_remaining = 0.0
         self.psi.advance(dt_seconds, self.city.active_haunts())
         events = self.city.tick(dt_seconds, self.psi.value, self.rng)
         has_sensor = self.loadout.has("sensor") if self.loadout is not None else False
         events.extend(self.mascot.tick(dt_seconds, self.psi.value, has_sensor, self.rng))
         return events
+
+    def _set_notice(self, reason: str) -> None:
+        """Arm a rejection message with its on-screen lifetime.
+
+        TITLE/SHOP notices are set through this same helper, but those scenes
+        never call `_world_tick`, so `notice_remaining` there just sits unused
+        until the next assignment or a scene change zeroes it.
+        """
+        self.notice = reason
+        self.notice_remaining = NOTICE_LIFETIME_SECONDS
 
     def _tick_drive(self, dt_seconds: float) -> list[Event]:
         assert self.drive is not None
@@ -261,18 +280,19 @@ class Game:
             try:
                 bankroll = decode_account(command.name, command.code)
             except AccountCodeError:
-                self.notice = "invalid account code"
+                self._set_notice("invalid account code")
                 return [AccountRejected("invalid account code")]
             if bankroll < _CHEAPEST_VEHICLE_PRICE:
                 # A forged code with a starvation bankroll would otherwise strand
                 # the player in SHOP unable to afford any vehicle. Legitimate win
                 # codes are always > $10,000, so only forged codes hit this.
-                self.notice = "account too depleted"
+                self._set_notice("account too depleted")
                 return [AccountRejected("account too depleted")]
             self.player_name = command.name
             self.wallet.balance = bankroll
             self.starting_bankroll = bankroll
             self.notice = None
+            self.notice_remaining = 0.0
             self.scene = SceneId.SHOP
             return [AccountAccepted(command.name, bankroll), SceneChanged(SceneId.SHOP)]
         return []
@@ -283,34 +303,36 @@ class Game:
                 vehicle = VEHICLES[vehicle_id]
                 if self.loadout is not None:
                     reason = "vehicle already chosen"
-                    self.notice = reason
+                    self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
                 elif not self.wallet.can_afford(vehicle.price):
                     reason = "cannot afford"
-                    self.notice = reason
+                    self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
                 else:
                     self.wallet.spend(vehicle.price)
                     self.loadout = Loadout(vehicle=vehicle)
                     self.notice = None
+                    self.notice_remaining = 0.0
                     events.append(VehicleSelected(vehicle_id))
             case BuyItem(item_id=item_id):
                 if self.loadout is None:
                     reason = "choose a vehicle first"
-                    self.notice = reason
+                    self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
                 elif not self.wallet.can_afford(ITEMS[item_id].price):
                     reason = "cannot afford"
-                    self.notice = reason
+                    self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
                 elif not self.loadout.can_add(item_id):
                     reason = "no room in vehicle"
-                    self.notice = reason
+                    self._set_notice(reason)
                     events.append(PurchaseRejected(reason))
                 else:
                     self.wallet.spend(ITEMS[item_id].price)
                     self.loadout.add(item_id)
                     self.notice = None
+                    self.notice_remaining = 0.0
                     events.append(ItemBought(item_id))
             case FinishShopping():
                 if self.loadout is not None:
@@ -342,20 +364,21 @@ class Game:
     def _depot_restock(self, item_id: str) -> list[Event]:
         """Mid-game snare restock: only "snare", and only at the Depot."""
         if item_id != "snare" or self.position != DEPOT_POS:
-            self.notice = "snares only, at the Depot"
+            self._set_notice("snares only, at the Depot")
             return [PurchaseRejected("snares only, at the Depot")]
         if self.loadout is None:  # defensive: MAP is unreachable without a vehicle
-            self.notice = "choose a vehicle first"
+            self._set_notice("choose a vehicle first")
             return [PurchaseRejected("choose a vehicle first")]
         if not self.wallet.can_afford(ITEMS["snare"].price):
-            self.notice = "cannot afford"
+            self._set_notice("cannot afford")
             return [PurchaseRejected("cannot afford")]
         if not self.loadout.can_add("snare"):
-            self.notice = "no room in vehicle"
+            self._set_notice("no room in vehicle")
             return [PurchaseRejected("no room in vehicle")]
         self.wallet.spend(ITEMS["snare"].price)
         self.loadout.add("snare")
         self.notice = None
+        self.notice_remaining = 0.0
         return [ItemBought("snare")]
 
     def _arrive_at(self, pos: GridPos) -> list[Event]:
@@ -395,7 +418,7 @@ class Game:
                 reason = "no free snare — buy or empty one at the Depot"
             else:
                 reason = "cleaners are slimed — restore them at the Depot"
-            self.notice = reason
+            self._set_notice(reason)
             events.append(CommandRejected(reason))
         else:
             if self.scene is not SceneId.MAP:
@@ -413,7 +436,7 @@ class Game:
             if self.scene is not SceneId.MAP:
                 self._change_scene(SceneId.MAP, events)
             reason = "not enough able cleaners — restore them at the Depot"
-            self.notice = reason
+            self._set_notice(reason)
             events.append(CommandRejected(reason))
 
     def _tick_finale(self, dt_seconds: float) -> list[Event]:
@@ -496,6 +519,7 @@ class Game:
         # Notices are scene-local (drawn only by TITLE/SHOP/MAP); a rejection
         # message must not outlive the scene it was raised on.
         self.notice = None
+        self.notice_remaining = 0.0
         self.scene = s
         events.append(SceneChanged(s))
 
@@ -518,6 +542,7 @@ class Game:
         self.bust = None
         self.finale = None
         self.notice = None
+        self.notice_remaining = 0.0
         self.psi = PsiModel()
         self.city = City.new()
         self.mascot = MascotModel()

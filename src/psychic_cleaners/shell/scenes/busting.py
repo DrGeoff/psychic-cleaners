@@ -53,7 +53,7 @@ class BustingScene:
                     cmds.append(PlaceCleaner())
                 elif bust.phase is BustPhase.SNARE:
                     cmds.append(LaySnare())
-            elif event.key == pygame.K_SPACE and bust.phase is BustPhase.ACTIVE:
+            elif event.key == pygame.K_SPACE:
                 cmds.append(SpringSnare())
             elif event.key == pygame.K_b:
                 cmds.append(DeployBait())

@@ -99,6 +99,17 @@ def test_space_springs_snare(bust_game: Game) -> None:
     assert BustingScene().commands([space], bust_game) == [SpringSnare()]
 
 
+def test_space_emits_snare_command_in_non_active_phases(
+    monkeypatch: pytest.MonkeyPatch, bust_game: Game
+) -> None:
+    """Space KEYDOWN during POSITION_LEFT yields SpringSnare for core to evaluate."""
+    assert bust_game.bust is not None
+    bust_game.bust.phase = BustPhase.POSITION_LEFT
+    space = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE)
+    _press(monkeypatch)  # initialize pygame key system with empty pressed keys
+    assert BustingScene().commands([space], bust_game) == [SpringSnare()]
+
+
 def test_bust_scene_registered() -> None:
     assert isinstance(SCENES[SceneId.BUST], BustingScene)
 
