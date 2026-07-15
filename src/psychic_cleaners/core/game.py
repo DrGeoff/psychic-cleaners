@@ -401,6 +401,12 @@ class Game:
                 self._change_scene(SceneId.MAP, events)
         elif pos == TOWER_POS and self.finale_unlocked:
             self._arrive_at_tower(events)
+        elif pos == TOWER_POS:
+            if self.scene is not SceneId.MAP:
+                self._change_scene(SceneId.MAP, events)
+            reason = "the Tower is sealed — return when the city's residue peaks"
+            self._set_notice(reason)
+            events.append(CommandRejected(reason))
         elif (
             pos in self.city.haunted_positions()
             and self.free_snares() > 0

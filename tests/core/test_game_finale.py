@@ -64,9 +64,12 @@ def test_tower_arrival_with_too_few_able_cleaners_is_turned_away() -> None:
 def test_tower_arrival_without_unlock_stays_on_map() -> None:
     game = _game_at_tower()
     game.finale_unlocked = False
-    game.tick([SetDestination(TOWER_POS)], 0.0)
+    events = game.tick([SetDestination(TOWER_POS)], 0.0)
     assert game.scene is SceneId.MAP
     assert game.finale is None
+    reason = "the Tower is sealed — return when the city's residue peaks"
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
 
 
 def _game_in_finale(name: str = "Alex") -> Game:
