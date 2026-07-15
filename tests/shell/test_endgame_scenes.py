@@ -67,6 +67,58 @@ def test_finale_draw_smoke_without_runner(surface: pygame.Surface) -> None:
     FinaleScene().draw(surface, game, SpriteFactory(), TextRenderer())
 
 
+class _RecordingText(TextRenderer):
+    """TextRenderer that records every message it draws."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.messages: list[str] = []
+
+    def draw(
+        self,
+        surface: pygame.Surface,
+        message: str,
+        pos: tuple[int, int],
+        size: int = 16,
+        color: tuple[int, int, int] = (230, 230, 230),
+    ) -> None:
+        self.messages.append(message)
+        super().draw(surface, message, pos, size, color)
+
+
+_PROMPT = "SPACE: send cleaner"
+
+
+def test_finale_prompt_shown_when_a_runner_can_be_sent(surface: pygame.Surface) -> None:
+    game = _finale_game()
+    assert game.finale is not None
+    game.finale.runner_x = None
+    text = _RecordingText()
+    FinaleScene().draw(surface, game, SpriteFactory(), text)
+    assert _PROMPT in text.messages
+
+
+def test_finale_prompt_hidden_while_a_runner_is_mid_run(surface: pygame.Surface) -> None:
+    game = _finale_game()  # start_run() already sent a runner
+    assert game.finale is not None and game.finale.runner_x is not None
+    text = _RecordingText()
+    FinaleScene().draw(surface, game, SpriteFactory(), text)
+    assert _PROMPT not in text.messages
+
+
+def test_finale_prompt_hidden_when_nobody_remains_outside(surface: pygame.Surface) -> None:
+    game = _finale_game()
+    sim = game.finale
+    assert sim is not None
+    sim.runner_x = None
+    sim.inside = 1
+    sim.squashed = 2  # 3 able cleaners all accounted for
+    assert sim.remaining_outside == 0
+    text = _RecordingText()
+    FinaleScene().draw(surface, game, SpriteFactory(), text)
+    assert _PROMPT not in text.messages
+
+
 def test_gameover_return_sends_continue() -> None:
     game = new_game(1)
     assert GameOverScene().commands([_key(pygame.K_RETURN)], game) == [Continue()]

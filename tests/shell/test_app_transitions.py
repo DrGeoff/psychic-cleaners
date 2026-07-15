@@ -12,6 +12,7 @@ from psychic_cleaners.shell.app import SCENES, App
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.scenes.city_map import CityMapScene
 from psychic_cleaners.shell.scenes.shop import ShopScene
+from psychic_cleaners.shell.scenes.title import TitleScene
 from psychic_cleaners.shell.text import TextRenderer
 
 
@@ -43,6 +44,35 @@ def test_app_resets_shop_and_map_cursors_on_title_transition() -> None:
         _step_game_over_continue(app)
         assert shop_scene.cursor == 0
         assert map_scene.cursor == DEPOT_POS
+    finally:
+        pygame.quit()
+
+
+def test_fresh_app_starts_with_reset_scene_state() -> None:
+    """A new App must not inherit scene state left by a previous App.
+
+    SCENES is a module-level singleton dict, so without a reset in
+    App.__init__ a second App in the same process (tests, scripted
+    playtests) opens with the previous game's cursors and title fields.
+    """
+    app = App(seed=1)
+    try:
+        shop_scene = SCENES[SceneId.SHOP]
+        map_scene = SCENES[SceneId.MAP]
+        title_scene = SCENES[SceneId.TITLE]
+        assert isinstance(shop_scene, ShopScene)
+        assert isinstance(map_scene, CityMapScene)
+        assert isinstance(title_scene, TitleScene)
+        shop_scene.cursor = 9  # state the "previous game" left behind
+        map_scene.cursor = (7, 2)
+        title_scene._name = "LEFTOVER"
+        title_scene._code = "AAAAAAA"
+        App(seed=2)
+        assert shop_scene.cursor == 0
+        assert map_scene.cursor == DEPOT_POS
+        assert title_scene._name == ""
+        assert title_scene._code == ""
+        assert app is not None  # keep the first App alive through the checks
     finally:
         pygame.quit()
 

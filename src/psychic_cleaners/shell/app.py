@@ -72,6 +72,24 @@ SCENES: Final[dict[SceneId, Scene]] = {
 }
 
 
+def _reset_scene_singletons() -> None:
+    """Return the stateful scene singletons to their new-game state.
+
+    SCENES is module-level, so without this a second App in the same
+    process (tests, scripted playtests) would inherit the previous game's
+    shop/map cursors and title fields.
+    """
+    title_scene = SCENES[SceneId.TITLE]
+    if isinstance(title_scene, TitleScene):
+        title_scene.reset()
+    shop_scene = SCENES[SceneId.SHOP]
+    if isinstance(shop_scene, ShopScene):
+        shop_scene.reset()
+    map_scene = SCENES[SceneId.MAP]
+    if isinstance(map_scene, CityMapScene):
+        map_scene.reset()
+
+
 class App:
     """Owns the window, the Game, and the per-frame pipeline."""
 
@@ -83,6 +101,7 @@ class App:
         self.logical = pygame.Surface(LOGICAL_SIZE)
         self.clock = pygame.time.Clock()
         self.running = True
+        _reset_scene_singletons()
         self.game = new_game(seed if seed is not None else int.from_bytes(os.urandom(4)))
         self.gfx = SpriteFactory()
         self.text = TextRenderer()
@@ -106,15 +125,7 @@ class App:
         if self.game.scene is not self._prev_scene:
             if self.game.scene is SceneId.TITLE:
                 self.audio.play_music_loop()
-                title_scene = SCENES[SceneId.TITLE]
-                if isinstance(title_scene, TitleScene):
-                    title_scene.reset()
-                shop_scene = SCENES[SceneId.SHOP]
-                if isinstance(shop_scene, ShopScene):
-                    shop_scene.reset()
-                map_scene = SCENES[SceneId.MAP]
-                if isinstance(map_scene, CityMapScene):
-                    map_scene.reset()
+                _reset_scene_singletons()
             elif self._prev_scene is SceneId.TITLE:
                 self.audio.stop_music()
             self._prev_scene = self.game.scene
