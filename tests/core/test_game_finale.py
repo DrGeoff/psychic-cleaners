@@ -72,6 +72,25 @@ def test_tower_arrival_without_unlock_stays_on_map() -> None:
     assert game.notice == reason
 
 
+def test_locked_tower_arrival_after_a_drive_returns_to_map() -> None:
+    # Arrival at the end of a real DRIVE (not the on-the-spot shortcut) must
+    # route the scene back to MAP, with the same sealed-tower explanation.
+    game = _game_at_tower()
+    game.finale_unlocked = False
+    game.position = (TOWER_POS[0] - 1, TOWER_POS[1])
+    events = game.tick([SetDestination(TOWER_POS)], 0.0)
+    assert SceneChanged(SceneId.DRIVE) in events
+    for _ in range(1000):
+        events = game.tick([], 0.1)
+        if game.scene is not SceneId.DRIVE:
+            break
+    assert game.scene is SceneId.MAP
+    assert game.finale is None
+    reason = "the Tower is sealed — return when the city's residue peaks"
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
+
+
 def _game_in_finale(name: str = "Alex") -> Game:
     game = _game_at_tower(name)
     game.tick([SetDestination(TOWER_POS)], 0.0)
