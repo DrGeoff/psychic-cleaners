@@ -41,6 +41,10 @@ MAX_ACTIVE_HAUNTS: Final[int] = 4
 WISP_SPAWN_PER_REAL_MINUTE: Final[float] = 0.6
 WISP_MAP_SPEED: Final[float] = 0.05  # grid cells per real second
 
+# the Warden and the Locksmith (spec 4.3/4.7)
+# ~21 real seconds from the far corner to the tower: a readable endgame beat.
+CONVERGENCE_WALK_SPEED: Final[float] = 0.25  # grid cells per real second
+
 # drive scene
 DRIVE_LANES: Final[int] = 3
 CAR_X: Final[float] = 80.0

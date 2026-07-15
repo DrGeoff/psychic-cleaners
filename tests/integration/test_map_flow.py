@@ -7,11 +7,15 @@ from psychic_cleaners.core.constants import (
     DEPOT_POS,
     PSI_GROWTH_PER_REAL_MINUTE,
     PSI_MAX,
+    TOWER_POS,
     WISP_TOWER_PSI_JUMP,
 )
+from psychic_cleaners.core.convergence import Convergence
 from psychic_cleaners.core.events import (
     BuyItem,
     CleanersRestored,
+    CommandRejected,
+    ConvergenceStarted,
     Event,
     FinaleUnlocked,
     ItemBought,
@@ -73,6 +77,7 @@ def test_new_game_resets_world_state() -> None:
     game.position = (4, 4)
     game.destination = (5, 5)
     game.finale_unlocked = True
+    game.convergence = Convergence.start()
     game.slimed = {1}
     game.snares_full = 2
     game.contained = 3
@@ -84,6 +89,7 @@ def test_new_game_resets_world_state() -> None:
     assert game.position == DEPOT_POS
     assert game.destination is None
     assert game.finale_unlocked is False
+    assert game.convergence is None
     assert game.slimed == set()
     assert game.snares_full == 0
     assert game.contained == 0
@@ -115,14 +121,41 @@ def test_wisp_reaching_tower_spikes_psi() -> None:
     assert game.psi.value >= WISP_TOWER_PSI_JUMP
 
 
-def test_finale_unlocked_exactly_once() -> None:
+def test_psi_max_starts_convergence_not_unlock() -> None:
+    # Spec 4.3/4.7: at 9999 PSI the Warden and the Locksmith set out for the
+    # Tower; the finale unlocks when they ARRIVE, not when PSI maxes.
     game = _map_game(8)
     game.psi.spike(float(PSI_MAX))
     first = game.tick([], 0.0)
     second = game.tick([], 0.0)
-    assert sum(isinstance(e, FinaleUnlocked) for e in first) == 1
-    assert not any(isinstance(e, FinaleUnlocked) for e in second)
+    assert sum(isinstance(e, ConvergenceStarted) for e in first) == 1
+    assert not any(isinstance(e, ConvergenceStarted) for e in second)
+    assert game.convergence is not None
+    assert not any(isinstance(e, FinaleUnlocked) for e in first + second)
+    assert game.finale_unlocked is False
+
+
+def test_finale_unlocked_exactly_once_when_walkers_arrive() -> None:
+    game = _map_game(8)
+    game.psi.spike(float(PSI_MAX))
+    game.tick([], 0.0)  # summons the pair
+    walk = game.tick([], 30.0)  # the far corner is ~21 real seconds out
+    after = game.tick([], 1.0)
+    assert sum(isinstance(e, FinaleUnlocked) for e in walk) == 1
+    assert not any(isinstance(e, FinaleUnlocked) for e in after)
     assert game.finale_unlocked is True
+
+
+def test_tower_sealed_while_the_pair_converge() -> None:
+    game = _map_game(8)
+    game.psi.spike(float(PSI_MAX))
+    game.tick([], 0.0)  # summons the pair
+    assert game.finale_unlocked is False
+    game.position = TOWER_POS
+    events = game.tick([SetDestination(TOWER_POS)], 0.0)
+    reason = "the Warden and the Locksmith are converging — the Tower opens when they arrive"
+    assert CommandRejected(reason) in events
+    assert game.scene is SceneId.MAP
 
 
 def test_set_destination_to_neighbour_starts_a_drive() -> None:

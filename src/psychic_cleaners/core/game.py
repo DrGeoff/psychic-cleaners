@@ -32,6 +32,7 @@ from psychic_cleaners.core.constants import (
     VACUUM_BOUNTY,
     WISP_TOWER_PSI_JUMP,
 )
+from psychic_cleaners.core.convergence import Convergence
 from psychic_cleaners.core.drive import DriveSim
 from psychic_cleaners.core.economy import Wallet, bust_fee
 from psychic_cleaners.core.events import (
@@ -47,6 +48,7 @@ from psychic_cleaners.core.events import (
     Command,
     CommandRejected,
     Continue,
+    ConvergenceStarted,
     DeployBait,
     EnterAccount,
     Event,
@@ -119,6 +121,7 @@ class Game:
     snares_full: int = 0
     position: GridPos = DEPOT_POS
     destination: GridPos | None = None
+    convergence: Convergence | None = None  # the Warden and the Locksmith, walking
     finale_unlocked: bool = False
     shop_fold_warned: bool = False  # FinishShopping doom warning shown once
 
@@ -149,9 +152,16 @@ class Game:
             for event in world_events:
                 if isinstance(event, WispReachedTower):
                     self.psi.spike(float(WISP_TOWER_PSI_JUMP))
-            if self.psi.at_max and not self.finale_unlocked:
-                self.finale_unlocked = True
-                events.append(FinaleUnlocked())
+            # Spec 4.3/4.7: max PSI summons the Warden and the Locksmith; the
+            # finale unlocks only once BOTH have walked to the Tower.
+            if self.psi.at_max and self.convergence is None and not self.finale_unlocked:
+                self.convergence = Convergence.start()
+                events.append(ConvergenceStarted())
+            elif self.convergence is not None and not self.finale_unlocked:
+                self.convergence.tick(dt_seconds)
+                if self.convergence.arrived:
+                    self.finale_unlocked = True
+                    events.append(FinaleUnlocked())
             if self.drive is not None and self.drive.arrived:
                 assert self.destination is not None
                 events.extend(self._arrive_at(self.destination))
@@ -440,7 +450,12 @@ class Game:
         elif pos == TOWER_POS:
             if self.scene is not SceneId.MAP:
                 self._change_scene(SceneId.MAP, events)
-            reason = "the Tower is sealed — return when the city's residue peaks"
+            if self.convergence is not None:
+                reason = (
+                    "the Warden and the Locksmith are converging — the Tower opens when they arrive"
+                )
+            else:
+                reason = "the Tower is sealed — return when the city's residue peaks"
             self._set_notice(reason)
             events.append(CommandRejected(reason))
         elif (
@@ -598,6 +613,7 @@ class Game:
         self.snares_full = 0
         self.position = DEPOT_POS
         self.destination = None
+        self.convergence = None
         self.finale_unlocked = False
         self.shop_fold_warned = False
 

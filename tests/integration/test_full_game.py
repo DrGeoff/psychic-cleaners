@@ -16,6 +16,7 @@ from psychic_cleaners.core.constants import (
 from psychic_cleaners.core.events import (
     BuyItem,
     Continue,
+    ConvergenceStarted,
     Event,
     FinaleUnlocked,
     FinishShopping,
@@ -110,7 +111,10 @@ def test_full_win_playthrough() -> None:
     _assert_scene(game, SceneId.MAP)
 
     game.psi.spike(PSI_MAX)
-    events = game.tick([], 0.001)  # one world tick latches the unlock
+    events = game.tick([], 0.001)  # one world tick summons the Warden and the Locksmith
+    assert any(isinstance(e, ConvergenceStarted) for e in events)
+    assert not game.finale_unlocked
+    events = game.tick([], 30.0)  # the pair cross the city in ~21 real seconds
     assert any(isinstance(e, FinaleUnlocked) for e in events)
     assert game.finale_unlocked
 
@@ -143,7 +147,8 @@ def test_full_loss_playthrough() -> None:
 
     game.slimed.add(0)  # exactly two able cleaners will enter the finale
     game.psi.spike(PSI_MAX)
-    game.tick([], 0.001)
+    game.tick([], 0.001)  # summons the pair
+    game.tick([], 30.0)  # walks them to the Tower
     assert game.finale_unlocked
 
     game.tick([SetDestination(TOWER_POS)], 0.0)

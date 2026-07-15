@@ -227,6 +227,11 @@ class BuildingStomped(Event):
 
 
 @dataclass(frozen=True)
+class ConvergenceStarted(Event):
+    """The Warden and the Locksmith have appeared and walk toward the Tower."""
+
+
+@dataclass(frozen=True)
 class FinaleUnlocked(Event):
     pass
 
