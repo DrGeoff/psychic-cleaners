@@ -23,6 +23,7 @@ from psychic_cleaners.core.constants import (
     CONTAINMENT_RIG_CAPACITY,
     DEPOT_POS,
     FINALE_NEEDED_INSIDE,
+    MAX_BANKROLL,
     NOTICE_LIFETIME_SECONDS,
     STARTING_BANKROLL,
     STOMP_FINE,
@@ -476,7 +477,12 @@ class Game:
         events.extend(self.finale.tick(dt_seconds))
         outcome = self.finale.outcome
         if outcome is FinaleOutcome.WON:
-            if self.wallet.balance > self.starting_bankroll:
+            # A wallet pinned at the cap has trivially turned a profit: the
+            # clamp makes `balance > starting_bankroll` unsatisfiable when a
+            # restored account starts AT MAX_BANKROLL.
+            if self.wallet.balance > self.starting_bankroll or (
+                self.wallet.balance >= MAX_BANKROLL
+            ):
                 code = encode_account(self.player_name, self.wallet.balance)
                 self.result = "won"
                 self.last_account_code = code

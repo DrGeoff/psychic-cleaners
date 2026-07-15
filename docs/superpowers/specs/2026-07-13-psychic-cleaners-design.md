@@ -173,7 +173,9 @@ price — this is the purchase the bankruptcy rule in 4.7 presupposes.
   fewer than 2 able cleaners — restore them at the Depot and return.
 - Win condition (documented): final bankroll strictly greater than starting
   bankroll → franchise approved; a new account code is issued for the next
-  game. Otherwise: game over.
+  game. Otherwise: game over. Exception: a bankroll sitting at the $9,999,999
+  cap counts as profitable — the wallet clamps there, so an account restored
+  at the cap could otherwise never satisfy "strictly greater".
 - Ordinary game over (bankruptcy: no free snare, no snare capacity to empty,
   and insufficient funds to buy one — the franchise can no longer operate)
   shows the loss screen.

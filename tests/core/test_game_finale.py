@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from psychic_cleaners.core.codec import decode_account
-from psychic_cleaners.core.constants import RUNNER_START_X, TOWER_POS
+from psychic_cleaners.core.constants import MAX_BANKROLL, RUNNER_START_X, TOWER_POS
 from psychic_cleaners.core.events import (
     BuyItem,
     CommandRejected,
@@ -152,6 +152,28 @@ def test_finale_win_without_profit_still_loses() -> None:
     assert game.result == "lost"
     assert game.scene is SceneId.GAME_OVER
     assert game.finale is None
+
+
+def test_finale_win_at_the_bankroll_cap_counts_as_profit() -> None:
+    """A restored max-bankroll account must not be unwinnable.
+
+    The wallet clamps at MAX_BANKROLL, so `balance > starting_bankroll` can
+    never hold when a restored account starts AT the cap — a franchise pinned
+    to the cap has trivially turned a profit.
+    """
+    game = _game_in_finale()
+    game.starting_bankroll = MAX_BANKROLL  # what restoring a maxed code sets
+    game.wallet.balance = MAX_BANKROLL
+    assert game.finale is not None
+    game.finale.inside = 1
+    game.tick([StartRun()], 0.0)
+    events = game.tick([], 3.25)
+    assert RunnerEntered(2) in events
+    won = [e for e in events if isinstance(e, GameWon)]
+    assert len(won) == 1
+    assert decode_account("Alex", won[0].account_code) == MAX_BANKROLL
+    assert game.result == "won"
+    assert game.lose_reason is None
 
 
 def test_finale_squash_below_needed_loses_the_city() -> None:
