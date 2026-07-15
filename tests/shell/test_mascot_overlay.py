@@ -52,7 +52,7 @@ def _world_game(scene_id: SceneId) -> Game:
 def test_b_key_maps_to_deploy_bait(scene_id: SceneId, make_scene: Callable[[], Scene]) -> None:
     scene = make_scene()
     key_event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b)
-    commands = scene.commands([key_event], _world_game(scene_id))
+    commands = scene.commands([key_event], _world_game(scene_id), 1 / 60)
     assert any(isinstance(c, DeployBait) for c in commands)
 
 

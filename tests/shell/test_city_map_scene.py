@@ -23,13 +23,13 @@ def test_cursor_moves_and_clamps_to_grid() -> None:
     scene = CityMapScene()
     game = new_game(1)
     assert scene.cursor == DEPOT_POS  # (0, 5)
-    scene.commands([_key(pygame.K_RIGHT)], game)
+    scene.commands([_key(pygame.K_RIGHT)], game, 1 / 60)
     assert scene.cursor == (1, 5)
-    scene.commands([_key(pygame.K_UP)], game)
+    scene.commands([_key(pygame.K_UP)], game, 1 / 60)
     assert scene.cursor == (1, 4)
-    scene.commands([_key(pygame.K_LEFT), _key(pygame.K_LEFT)], game)
+    scene.commands([_key(pygame.K_LEFT), _key(pygame.K_LEFT)], game, 1 / 60)
     assert scene.cursor == (0, 4)  # clamped at x=0
-    scene.commands([_key(pygame.K_DOWN), _key(pygame.K_DOWN)], game)
+    scene.commands([_key(pygame.K_DOWN), _key(pygame.K_DOWN)], game, 1 / 60)
     assert scene.cursor == (0, 5)  # clamped at y=GRID_HEIGHT-1
 
 
@@ -37,8 +37,8 @@ def test_enter_emits_set_destination_at_cursor() -> None:
     pygame.init()
     scene = CityMapScene()
     game = new_game(2)
-    scene.commands([_key(pygame.K_RIGHT)], game)
-    commands = scene.commands([_key(pygame.K_RETURN)], game)
+    scene.commands([_key(pygame.K_RIGHT)], game, 1 / 60)
+    commands = scene.commands([_key(pygame.K_RETURN)], game, 1 / 60)
     assert commands == [SetDestination((1, 5))]
 
 
@@ -46,7 +46,7 @@ def test_s_emits_buy_snare() -> None:
     pygame.init()
     scene = CityMapScene()
     game = new_game(5)
-    commands = scene.commands([_key(pygame.K_s)], game)
+    commands = scene.commands([_key(pygame.K_s)], game, 1 / 60)
     assert commands == [BuyItem("snare")]
 
 

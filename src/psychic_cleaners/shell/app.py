@@ -121,7 +121,7 @@ class App:
             if event.type == pygame.QUIT:
                 self.running = False
         scene = SCENES[self.game.scene]
-        commands = scene.commands(events, self.game)
+        commands = scene.commands(events, self.game, dt)
         game_events = self.game.tick(commands, dt)
         for game_event in game_events:
             sound_name = EVENT_SOUNDS.get(type(game_event))

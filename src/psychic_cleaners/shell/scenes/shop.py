@@ -36,7 +36,9 @@ class ShopScene:
         """
         self.cursor = 0
 
-    def commands(self, events: list[pygame.event.Event], game: Game) -> list[Command]:
+    def commands(
+        self, events: list[pygame.event.Event], game: Game, dt_seconds: float
+    ) -> list[Command]:
         commands: list[Command] = []
         for event in events:
             if event.type != pygame.KEYDOWN:
