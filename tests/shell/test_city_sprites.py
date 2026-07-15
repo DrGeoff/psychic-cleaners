@@ -8,7 +8,7 @@ from psychic_cleaners.shell.gfx import SpriteFactory
 def test_city_sprites_exist() -> None:
     pygame.init()
     factory = SpriteFactory()
-    for name in ("building", "building.haunted", "tower", "depot", "wisp"):
+    for name in ("building", "building.haunted", "tower", "tower.map", "depot", "wisp"):
         sprite = factory.get(name)
         assert sprite.get_width() > 0
         assert sprite.get_height() > 0
