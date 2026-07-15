@@ -118,8 +118,15 @@ price — this is the purchase the bankruptcy rule in 4.7 presupposes.
   the centre. Buildings flash when haunted.
 - The player moves a car cursor along streets to choose a destination; travel
   takes game time proportional to distance and inversely to vehicle speed.
+  *Implementation note: the cursor is a free cell-by-cell grid cursor, not
+  street-constrained, and travel cost uses Manhattan grid distance
+  (`City.distance`) — an intentional simplification.*
 - City PSI rises steadily with game time, spikes when a haunting goes
   un-busted, and jumps by 100 PSI each time a wisp reaches the Tower.
+  *Implementation note: an un-busted haunting causes no discrete spike;
+  instead each active haunting adds continuous growth of +100 PSI per real
+  minute (`PSI_HAUNT_GROWTH_PER_REAL_MINUTE`) for as long as it stays
+  un-busted — intentional, for smoother pressure.*
 - Wisps spawn at random buildings and drift toward the Tower.
 - At 9999 PSI (documented cap), the Warden and the Locksmith converge on the
   Tower and the finale unlocks (section 4.7).
@@ -190,7 +197,7 @@ src/psychic_cleaners/
     constants.py   # every gameplay number (single tuning point)
     events.py      # typed Commands (in) and Events (out) — dataclasses
     rng.py         # seedable RNG protocol
-    clock.py       # game-time model (ticks → hours; drives PSI growth)
+    clock.py       # game-time model (real seconds → game-world minutes)
     economy.py     # wallet: purchases, fees, fines; never negative
     codec.py       # account-code encode/decode with checksum
     catalog.py     # vehicle & equipment definitions
@@ -215,6 +222,11 @@ tests/
   integration/     # scripted full-playthrough FSM tests (headless, no pygame)
   shell/           # SDL dummy-driver smoke tests
 ```
+
+*Implementation note: the clock does not drive PSI growth. `GameClock`
+(`core/clock.py`) only accumulates elapsed game-world minutes; PSI accrues
+directly from real-second dt in `PsiModel.advance`, whose rates are
+`PER_REAL_MINUTE` constants independent of `GAME_MINUTES_PER_REAL_SECOND`.*
 
 ### Data flow and determinism
 
