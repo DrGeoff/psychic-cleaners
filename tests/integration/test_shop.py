@@ -43,6 +43,24 @@ def test_happy_path_hearse_two_snares_vacuum() -> None:
     assert game.loadout.count("vacuum") == 1
 
 
+def test_buying_sensor_and_bait_arms_the_mascot_defense() -> None:
+    # The sensor/bait combo is what lets a player divert a Sir Squish alert
+    # instead of eating a stomp fine; it deserves its own purchase coverage
+    # rather than only appearing as slot-filler in the full-vehicle tests.
+    game = _shop_game()
+    game.tick([SelectVehicle("compact")], 0.0)  # 8000 left
+
+    events = game.tick([BuyItem("sensor"), BuyItem("bait")], 0.0)
+    assert ItemBought("sensor") in events
+    assert ItemBought("bait") in events
+
+    assert game.wallet.balance == 10_000 - 2_000 - 800 - 400  # 6800
+    assert game.loadout is not None
+    assert game.loadout.has("sensor")
+    assert game.loadout.count("bait") == 1
+    assert game.loadout.bait_charges == 5  # one pack: BAIT_PACK_SIZE
+
+
 def test_unaffordable_vehicle_rejected() -> None:
     game = _shop_game()
     events = game.tick([SelectVehicle("performance")], 0.0)  # 15000 > 10000
