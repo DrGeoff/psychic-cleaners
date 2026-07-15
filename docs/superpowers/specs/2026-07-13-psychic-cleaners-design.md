@@ -184,8 +184,12 @@ price — this is the purchase the bankruptcy rule in 4.7 presupposes.
   cap counts as profitable — the wallet clamps there, so an account restored
   at the cap could otherwise never satisfy "strictly greater".
 - Ordinary game over (bankruptcy: no free snare, no snare capacity to empty,
-  and insufficient funds to buy one — the franchise can no longer operate)
-  shows the loss screen.
+  and no way to buy one — insufficient funds, or no free vehicle slot to
+  hold it: the franchise can no longer operate) shows the loss screen.
+  *Implementation note: the no-free-slot shape folds even a solvent,
+  vacuum-equipped loadout that could in principle grind wisp bounties —
+  accepted deliberately, consistent with the broke shape, and only reachable
+  past the shop's twice-confirmed doom warning.*
 
 ## 5. Architecture
 
