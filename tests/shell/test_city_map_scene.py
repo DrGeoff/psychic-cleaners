@@ -9,7 +9,7 @@ from psychic_cleaners.core.events import BuyItem, SceneId, SetDestination
 from psychic_cleaners.core.game import new_game
 from psychic_cleaners.core.loadout import Loadout
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes.city_map import CityMapScene
+from psychic_cleaners.shell.scenes.city_map import _CAR_MARKER, CityMapScene, _cell_rect
 from psychic_cleaners.shell.text import TextRenderer
 
 
@@ -76,6 +76,28 @@ def test_draw_smoke_with_detector_shows_wisps() -> None:
     surface = pygame.Surface((640, 400))
     scene.draw(surface, game, SpriteFactory(), TextRenderer())
     assert surface.get_at((320, 180)) != (24, 26, 34, 255)  # type: ignore[comparison-overlap]
+
+
+def test_car_marker_visible_when_parked_at_depot() -> None:
+    # Fix 6: the player marker must draw ON TOP of the depot sprite, not
+    # underneath it, or it disappears whenever the car is parked at (0, 5).
+    pygame.init()
+    pygame.display.set_mode((640, 400))
+    scene = CityMapScene()
+    game = new_game(7)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])
+    game.scene = SceneId.MAP
+    assert game.position == DEPOT_POS
+    surface = pygame.Surface((640, 400))
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())
+    cell = _cell_rect(DEPOT_POS)
+    marker_pixels = sum(
+        1
+        for x in range(cell.left, cell.left + cell.width)
+        for y in range(cell.top, cell.top + cell.height)
+        if surface.get_at((x, y))[:3] == _CAR_MARKER
+    )
+    assert marker_pixels > 0
 
 
 def test_draw_smoke_depot_hint_and_notice() -> None:

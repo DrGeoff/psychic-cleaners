@@ -6,6 +6,7 @@ from psychic_cleaners.core.codec import decode_account
 from psychic_cleaners.core.constants import RUNNER_START_X, TOWER_POS
 from psychic_cleaners.core.events import (
     BuyItem,
+    CommandRejected,
     Event,
     FinishShopping,
     GameLost,
@@ -45,14 +46,19 @@ def test_tower_arrival_enters_finale_with_able_cleaners() -> None:
     assert SceneChanged(SceneId.FINALE) in events
 
 
-def test_tower_arrival_with_too_few_able_cleaners_loses() -> None:
+def test_tower_arrival_with_too_few_able_cleaners_is_turned_away() -> None:
+    # An under-crewed team is turned away, not ended: the Depot can restore
+    # slimed cleaners and the player can come back and try again.
     game = _game_at_tower()
     game.slimed.update({0, 1})  # only one able cleaner: cannot get two inside
     events = game.tick([SetDestination(TOWER_POS)], 0.0)
-    assert game.scene is SceneId.GAME_OVER
-    assert game.result == "lost"
-    assert GameLost("not enough able cleaners") in events
+    assert game.scene is SceneId.MAP
+    assert game.result is None
+    reason = "not enough able cleaners — restore them at the Depot"
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
     assert game.finale is None
+    assert not any(isinstance(e, GameLost) for e in events)
 
 
 def test_tower_arrival_without_unlock_stays_on_map() -> None:
@@ -172,12 +178,12 @@ def test_no_profit_records_lose_reason_field() -> None:
     assert game.last_account_code is None
 
 
-def test_too_few_cleaners_records_lose_reason_field() -> None:
+def test_too_few_cleaners_does_not_record_a_lose_reason() -> None:
     game = _game_at_tower()
     game.slimed.update({0, 1})
     game.tick([SetDestination(TOWER_POS)], 0.0)
-    assert game.result == "lost"
-    assert game.lose_reason == "not enough able cleaners"
+    assert game.result is None
+    assert game.lose_reason is None
 
 
 def test_squash_loss_records_lose_reason_field() -> None:

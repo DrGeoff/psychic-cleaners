@@ -17,6 +17,7 @@ from psychic_cleaners.core.events import (
     ItemBought,
     NewGame,
     PurchaseRejected,
+    SceneChanged,
     SceneId,
     SetDestination,
     SnaresEmptied,
@@ -168,6 +169,24 @@ def test_depot_snare_restock_buys_a_snare() -> None:
     assert ItemBought("snare") in events
     assert game.loadout.count("snare") == owned + 1
     assert game.wallet.balance == balance - 600  # ITEMS["snare"].price
+    assert game.notice is None
+
+
+def test_notice_cleared_once_scene_changes_after_depot_rejection() -> None:
+    # Fix 3: a notice must not outlive the scene it was raised on. A depot
+    # S-rejection sets game.notice while still on MAP; driving off to
+    # another cell must clear it the instant the scene changes to DRIVE, not
+    # leave it lingering into the new scene.
+    game = _map_game(14)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])
+    game.loadout.add("snare")  # keeps the bankruptcy rule out of play below
+    assert game.position == DEPOT_POS
+    events = game.tick([BuyItem("vacuum")], 0.0)  # right place, wrong item
+    assert PurchaseRejected("snares only, at the Depot") in events
+    assert game.notice == "snares only, at the Depot"
+    events = game.tick([SetDestination((1, 5))], 0.0)
+    assert game.scene is SceneId.DRIVE
+    assert any(isinstance(e, SceneChanged) for e in events)
     assert game.notice is None
 
 

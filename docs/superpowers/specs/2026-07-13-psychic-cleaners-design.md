@@ -169,8 +169,8 @@ price — this is the purchase the bankruptcy rule in 4.7 presupposes.
   cleaner caught by Sir Squish is squashed out of the attempt. Getting 2 of 3
   able cleaners through the door wins the run; once fewer than 2 able
   cleaners remain outside with fewer than 2 inside, the run is lost. Slimed
-  cleaners (section 4.5) cannot take part, so entering the finale with
-  fewer than 2 able cleaners loses immediately.
+  cleaners (section 4.5) cannot take part; the Tower turns away a crew with
+  fewer than 2 able cleaners — restore them at the Depot and return.
 - Win condition (documented): final bankroll strictly greater than starting
   bankroll → franchise approved; a new account code is issued for the next
   game. Otherwise: game over.

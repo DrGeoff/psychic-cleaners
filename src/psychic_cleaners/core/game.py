@@ -168,8 +168,7 @@ class Game:
                 self.result = "lost"
                 self.lose_reason = reason
                 events.append(GameLost(reason))
-                self.scene = SceneId.GAME_OVER
-                events.append(SceneChanged(SceneId.GAME_OVER))
+                self._change_scene(SceneId.GAME_OVER, events)
         if scene is SceneId.FINALE:
             events.extend(self._tick_finale(dt_seconds))
         return events
@@ -315,9 +314,7 @@ class Game:
                     events.append(ItemBought(item_id))
             case FinishShopping():
                 if self.loadout is not None:
-                    self.notice = None
-                    self.scene = SceneId.MAP
-                    events.append(SceneChanged(SceneId.MAP))
+                    self._change_scene(SceneId.MAP, events)
 
     def _handle_map(self, command: Command) -> list[Event]:
         if isinstance(command, SetDestination):
@@ -339,8 +336,7 @@ class Game:
             has_lens=self.loadout.has("lens"),
         )
         events: list[Event] = [TravelStarted(dest=pos, distance=distance)]
-        self.scene = SceneId.DRIVE
-        events.append(SceneChanged(scene=SceneId.DRIVE))
+        self._change_scene(SceneId.DRIVE, events)
         return events
 
     def _depot_restock(self, item_id: str) -> list[Event]:
@@ -379,8 +375,7 @@ class Game:
             events.append(SnaresEmptied())
             events.append(CleanersRestored())
             if self.scene is not SceneId.MAP:
-                self.scene = SceneId.MAP
-                events.append(SceneChanged(scene=SceneId.MAP))
+                self._change_scene(SceneId.MAP, events)
         elif pos == TOWER_POS and self.finale_unlocked:
             self._arrive_at_tower(events)
         elif (
@@ -389,27 +384,37 @@ class Game:
             and self.able_cleaners() >= 2
         ):
             self.bust = BustSim()
-            self.scene = SceneId.BUST
-            events.append(SceneChanged(SceneId.BUST))
+            self._change_scene(SceneId.BUST, events)
+        elif pos in self.city.haunted_positions():
+            # Haunted, but the crew can't field a bust (no free snare, or
+            # fewer than two able cleaners): turn away with an explanation
+            # instead of silently dropping the player back on MAP.
+            if self.scene is not SceneId.MAP:
+                self._change_scene(SceneId.MAP, events)
+            if self.free_snares() == 0:
+                reason = "no free snare — buy or empty one at the Depot"
+            else:
+                reason = "cleaners are slimed — restore them at the Depot"
+            self.notice = reason
+            events.append(CommandRejected(reason))
         else:
             if self.scene is not SceneId.MAP:
-                self.scene = SceneId.MAP
-                events.append(SceneChanged(scene=SceneId.MAP))
+                self._change_scene(SceneId.MAP, events)
         return events
 
     def _arrive_at_tower(self, events: list[Event]) -> None:
-        """Tower arrival with the finale unlocked: enter the door run or lose."""
+        """Tower arrival with the finale unlocked: enter the door run or turn away."""
         if self.able_cleaners() >= FINALE_NEEDED_INSIDE:
             self.finale = FinaleSim(able_cleaners=self.able_cleaners())
-            self.scene = SceneId.FINALE
-            events.append(SceneChanged(SceneId.FINALE))
+            self._change_scene(SceneId.FINALE, events)
         else:
-            reason = "not enough able cleaners"
-            self.result = "lost"
-            self.lose_reason = reason
-            events.append(GameLost(reason))
-            self.scene = SceneId.GAME_OVER
-            events.append(SceneChanged(SceneId.GAME_OVER))
+            # An under-crewed team is turned away, not ended: restoring
+            # slimed cleaners at the Depot and returning is always possible.
+            if self.scene is not SceneId.MAP:
+                self._change_scene(SceneId.MAP, events)
+            reason = "not enough able cleaners — restore them at the Depot"
+            self.notice = reason
+            events.append(CommandRejected(reason))
 
     def _tick_finale(self, dt_seconds: float) -> list[Event]:
         """FINALE scene ticking and resolution: the world is frozen."""
@@ -438,8 +443,7 @@ class Game:
             events.append(GameLost(reason))
         if outcome is not None:
             self.finale = None
-            self.scene = SceneId.GAME_OVER
-            events.append(SceneChanged(SceneId.GAME_OVER))
+            self._change_scene(SceneId.GAME_OVER, events)
         return events
 
     def _resolve_bust(self) -> list[Event]:
@@ -477,8 +481,7 @@ class Game:
                 self.slimed.add(idx)
                 events.append(CleanerSlimed(idx))
         self.bust = None
-        self.scene = SceneId.MAP
-        events.append(SceneChanged(SceneId.MAP))
+        self._change_scene(SceneId.MAP, events)
         return events
 
     def free_snares(self) -> int:
@@ -490,6 +493,9 @@ class Game:
         return CLEANER_COUNT - len(self.slimed)
 
     def _change_scene(self, s: SceneId, events: list[Event]) -> None:
+        # Notices are scene-local (drawn only by TITLE/SHOP/MAP); a rejection
+        # message must not outlive the scene it was raised on.
+        self.notice = None
         self.scene = s
         events.append(SceneChanged(s))
 

@@ -14,6 +14,7 @@ from psychic_cleaners.core.events import (
     BuyItem,
     CleanerSlimed,
     CommandRejected,
+    Event,
     FinishShopping,
     GameLost,
     GhostTrapped,
@@ -49,13 +50,13 @@ def _shopped_game(*, snares: int = 1, with_rig: bool = False) -> Game:
     return game
 
 
-def _arrive_at(game: Game, pos: GridPos) -> None:
+def _arrive_at(game: Game, pos: GridPos) -> list[Event]:
     """Travel to pos, skipping the drive by completing the distance directly."""
     game.tick([SetDestination(pos)], 0.0)
     assert game.scene is SceneId.DRIVE
     assert game.drive is not None
     game.drive.distance_done = game.drive.distance_total
-    game.tick([], 0.0)
+    return game.tick([], 0.0)
 
 
 def test_arrival_at_haunt_with_snares_and_cleaners_starts_bust() -> None:
@@ -70,19 +71,38 @@ def test_arrival_at_haunt_with_snares_and_cleaners_starts_bust() -> None:
 def test_arrival_at_haunt_without_snares_goes_to_map() -> None:
     game = _shopped_game(snares=0)
     game.city.buildings[HAUNT].haunted = True
-    _arrive_at(game, HAUNT)
+    events = _arrive_at(game, HAUNT)
     assert game.scene is SceneId.MAP
     assert game.bust is None
     assert HAUNT in game.city.haunted_positions()  # haunting persists
+    reason = "no free snare — buy or empty one at the Depot"
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
 
 
 def test_arrival_at_haunt_with_one_able_cleaner_goes_to_map() -> None:
     game = _shopped_game()
     game.slimed = {0, 1}
     game.city.buildings[HAUNT].haunted = True
-    _arrive_at(game, HAUNT)
+    events = _arrive_at(game, HAUNT)
     assert game.scene is SceneId.MAP
     assert game.bust is None
+    reason = "cleaners are slimed — restore them at the Depot"
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
+
+
+def test_arrival_at_haunt_with_neither_snares_nor_cleaners_reports_snare_reason() -> None:
+    # When both requirements fail, the snare reason takes priority.
+    game = _shopped_game(snares=0)
+    game.slimed = {0, 1}
+    game.city.buildings[HAUNT].haunted = True
+    events = _arrive_at(game, HAUNT)
+    assert game.scene is SceneId.MAP
+    assert game.bust is None
+    reason = "no free snare — buy or empty one at the Depot"
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
 
 
 def _game_at_bust(*, snares: int = 1, with_rig: bool = False) -> Game:

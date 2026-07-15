@@ -2,6 +2,7 @@
 
 from psychic_cleaners.core.bust import BustOutcome, BustPhase, BustSim
 from psychic_cleaners.core.constants import (
+    BEAM_AIM_SPREAD,
     BEAM_CROSS_GHOST_Y,
     BEAM_MAX_TILT,
     BEAM_TOP_Y,
@@ -91,13 +92,19 @@ def test_beam_tilt_clamped() -> None:
     assert right_end == (420.0 - BEAM_MAX_TILT, BEAM_TOP_Y)
 
 
-def test_beam_aims_at_ghost_when_within_tilt() -> None:
+def test_beam_aims_left_and_right_of_ghost_when_within_tilt() -> None:
+    # The left cleaner (smaller x) aims BEAM_AIM_SPREAD left of the ghost, the
+    # right cleaner aims BEAM_AIM_SPREAD right of it: the tips never meet at a
+    # single point, so the beams never look like crossed streams by default.
     sim = _active_sim(left=300.0, right=340.0)
     sim.ghost_x = 320.0
     beams = sim.beam_endpoints()
     assert beams is not None
-    assert beams[0][1] == (320.0, BEAM_TOP_Y)
-    assert beams[1][1] == (320.0, BEAM_TOP_Y)
+    assert beams[0][1] == (320.0 - BEAM_AIM_SPREAD, BEAM_TOP_Y)
+    assert beams[1][1] == (320.0 + BEAM_AIM_SPREAD, BEAM_TOP_Y)
+    # Sanity for Fix 5: unclamped tips keep the left tip strictly left of the
+    # right tip, so segments_cross never fires on this ordinary case.
+    assert beams[0][1][0] < beams[1][1][0]
 
 
 def test_spring_caught_when_ghost_over_snare_and_low() -> None:

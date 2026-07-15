@@ -21,6 +21,8 @@ _ORIGIN_X: int = 40
 _ORIGIN_Y: int = 12
 _HUD_Y: int = 356
 _RED: tuple[int, int, int] = (240, 120, 120)
+_CAR_MARKER: tuple[int, int, int] = (250, 250, 250)
+_CAR_MARKER_OUTLINE: tuple[int, int, int] = (30, 30, 40)
 
 
 def _cell_rect(pos: GridPos) -> pygame.Rect:
@@ -83,9 +85,14 @@ class CityMapScene:
                 px = int(_ORIGIN_X + wisp.x * _CELL + _CELL / 2) - 8
                 py = int(_ORIGIN_Y + wisp.y * _CELL + _CELL / 2) - 8
                 surface.blit(wisp_sprite, (px, py))
+        # Player marker: drawn AFTER every cell sprite (buildings, tower,
+        # depot, wisps) so it stays visible even when parked on the Depot
+        # tile, with a dark outline for contrast against any cell colour.
         car = _cell_rect(game.position)
-        car_rect = pygame.Rect(car.left + 16, car.top + 36, 16, 10)
-        pygame.draw.rect(surface, (250, 250, 250), car_rect)
+        outline_rect = pygame.Rect(car.left + 13, car.top + 35, 22, 12)
+        pygame.draw.rect(surface, _CAR_MARKER_OUTLINE, outline_rect, border_radius=2)
+        car_rect = pygame.Rect(car.left + 14, car.top + 36, 20, 10)
+        pygame.draw.rect(surface, _CAR_MARKER, car_rect, border_radius=2)
         cursor_rect = _cell_rect(self.cursor).inflate(6, 6)
         pygame.draw.rect(surface, (255, 230, 90), cursor_rect, width=2)
         self._draw_hud(surface, game, text)

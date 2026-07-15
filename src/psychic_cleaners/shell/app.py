@@ -12,6 +12,7 @@ from psychic_cleaners.core.events import (
     BuildingStomped,
     BustMissed,
     CleanerSlimed,
+    CommandRejected,
     Event,
     GameLost,
     GameWon,
@@ -57,6 +58,7 @@ EVENT_SOUNDS: Final[dict[type[Event], str]] = {
     ItemBought: "buy",
     PurchaseRejected: "reject",
     AccountRejected: "reject",
+    CommandRejected: "reject",
 }
 
 SCENES: Final[dict[SceneId, Scene]] = {
@@ -104,6 +106,9 @@ class App:
         if self.game.scene is not self._prev_scene:
             if self.game.scene is SceneId.TITLE:
                 self.audio.play_music_loop()
+                title_scene = SCENES[SceneId.TITLE]
+                if isinstance(title_scene, TitleScene):
+                    title_scene.reset()
             elif self._prev_scene is SceneId.TITLE:
                 self.audio.stop_music()
             self._prev_scene = self.game.scene

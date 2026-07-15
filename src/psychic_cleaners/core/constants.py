@@ -62,9 +62,10 @@ SNARE_TRIGGER_Y: Final[float] = 280.0
 CLEANER_SPEED: Final[float] = 180.0  # px/sec while positioning
 BUST_MIN_X: Final[float] = 40.0
 BUST_MAX_X: Final[float] = 600.0
+BEAM_AIM_SPREAD: Final[float] = 8.0  # keeps the two beam tips from meeting at one point
 
 # mascot (Sir Squish)
-MASCOT_CHANCE_PER_MINUTE_PER_1000_PSI: Final[float] = 0.15
+MASCOT_CHANCE_PER_MINUTE_PER_1000_PSI: Final[float] = 0.10
 MASCOT_ALERT_WINDOW: Final[float] = 10.0  # real seconds to deploy bait
 
 # finale

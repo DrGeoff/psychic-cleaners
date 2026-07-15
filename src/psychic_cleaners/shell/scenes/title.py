@@ -72,11 +72,19 @@ class TitleScene:
                         out.append(EnterAccount(self._name, self._code))
                     else:
                         out.append(NewGame(self._name))
-                    # A later return to TITLE (e.g. after GAME_OVER) must start
-                    # from blank fields, not the previous game's leftovers.
-                    self._name = ""
-                    self._code = ""
         return out
+
+    def reset(self) -> None:
+        """Clear both buffers and return focus to the name field.
+
+        Called by the shell on every transition INTO TITLE (fresh game or a
+        return from GAME_OVER), so a REJECTED account code doesn't wipe the
+        player's name mid-edit, but a later trip back to TITLE still starts
+        from blank fields rather than the previous game's leftovers.
+        """
+        self._name = ""
+        self._code = ""
+        self._focus = _Field.NAME
 
     def _append(self, text: str) -> None:
         printable = "".join(ch for ch in text if ch.isprintable())

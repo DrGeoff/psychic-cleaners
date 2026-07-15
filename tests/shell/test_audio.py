@@ -56,6 +56,7 @@ def test_event_sounds_maps_each_core_event_and_every_value_is_a_recipe() -> None
         BuildingStomped,
         BustMissed,
         CleanerSlimed,
+        CommandRejected,
         Event,
         GameLost,
         GameWon,
@@ -89,6 +90,7 @@ def test_event_sounds_maps_each_core_event_and_every_value_is_a_recipe() -> None
         ItemBought: "buy",
         PurchaseRejected: "reject",
         AccountRejected: "reject",
+        CommandRejected: "reject",
     }
     for event_type, sound_name in expected.items():
         assert EVENT_SOUNDS.get(event_type) == sound_name, event_type
