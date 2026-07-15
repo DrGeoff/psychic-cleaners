@@ -1,10 +1,14 @@
-"""Strict proper segment intersection, and straight-line approach-and-stop
+"""Strict proper segment intersection, straight-line approach-and-stop
 motion shared by wisps (core/city.py) and the convergence walkers
-(core/convergence.py)."""
+(core/convergence.py), and a shared numeric clamp."""
 
 import math
 
 type Vec = tuple[float, float]
+
+
+def clamp[T: (int, float)](value: T, lo: T, hi: T) -> T:
+    return max(lo, min(hi, value))
 
 
 def move_toward(

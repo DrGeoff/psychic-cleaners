@@ -11,6 +11,7 @@ from psychic_cleaners.core.constants import (
     HAUNT_CHANCE_PER_REAL_MINUTE,
     MAX_ACTIVE_HAUNTS,
     PSI_MAX,
+    TOWER_ARRIVE_RADIUS,
     TOWER_POS,
     WISP_MAP_SPEED,
     WISP_SPAWN_PER_REAL_MINUTE,
@@ -96,7 +97,7 @@ class City:
             wisp.x, wisp.y = move_toward(
                 wisp.x, wisp.y, tower_x, tower_y, WISP_MAP_SPEED * dt_seconds
             )
-            if math.hypot(tower_x - wisp.x, tower_y - wisp.y) <= 0.5:
+            if math.hypot(tower_x - wisp.x, tower_y - wisp.y) <= TOWER_ARRIVE_RADIUS:
                 events.append(WispReachedTower())
             else:
                 remaining.append(wisp)

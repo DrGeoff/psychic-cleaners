@@ -40,6 +40,9 @@ HAUNT_CHANCE_PER_REAL_MINUTE: Final[float] = 0.8  # scaled by (1 + psi/PSI_MAX)
 MAX_ACTIVE_HAUNTS: Final[int] = 4
 WISP_SPAWN_PER_REAL_MINUTE: Final[float] = 0.6
 WISP_MAP_SPEED: Final[float] = 0.05  # grid cells per real second
+# Shared by wisps (city.py) and the convergence walkers (convergence.py):
+# how close (in grid cells) counts as "reached the Tower".
+TOWER_ARRIVE_RADIUS: Final[float] = 0.5
 
 # the Warden and the Locksmith (spec 4.3/4.7)
 # ~21 real seconds from the far corner to the tower: a readable endgame beat.

@@ -13,14 +13,14 @@ from psychic_cleaners.core.constants import (
     CONVERGENCE_WALK_SPEED,
     GRID_HEIGHT,
     GRID_WIDTH,
+    TOWER_ARRIVE_RADIUS,
     TOWER_POS,
 )
 from psychic_cleaners.core.geometry import move_toward
 
-# Same arrival radius the wisps use for reaching the tower (city.py).
-_ARRIVE_RADIUS = 0.5
-# The stop-short clamp in Walker.tick lands EXACTLY on the radius; rounding
-# can leave the distance a few ulps above it, so `arrived` allows that noise.
+# The stop-short clamp in Walker.tick lands EXACTLY on TOWER_ARRIVE_RADIUS;
+# rounding can leave the distance a few ulps above it, so `arrived` allows
+# that noise.
 _ARRIVE_EPSILON = 1e-9
 
 
@@ -36,13 +36,13 @@ class Walker:
             TOWER_POS[0],
             TOWER_POS[1],
             CONVERGENCE_WALK_SPEED * dt_seconds,
-            stop_radius=_ARRIVE_RADIUS,
+            stop_radius=TOWER_ARRIVE_RADIUS,
         )
 
     @property
     def arrived(self) -> bool:
         distance = math.hypot(TOWER_POS[0] - self.x, TOWER_POS[1] - self.y)
-        return distance <= _ARRIVE_RADIUS + _ARRIVE_EPSILON
+        return distance <= TOWER_ARRIVE_RADIUS + _ARRIVE_EPSILON
 
 
 @dataclass

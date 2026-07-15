@@ -29,6 +29,26 @@ _HINTS: dict[BustPhase, str] = {
 
 
 class BustingScene:
+    def __init__(self) -> None:
+        # The facade and pavement never change for the life of a bust
+        # encounter; render once and blit the cached surface instead of
+        # ~26 draw calls every frame.
+        self._background: pygame.Surface | None = None
+        self._background_size: tuple[int, int] | None = None
+
+    def _facade_background(self, size: tuple[int, int]) -> pygame.Surface:
+        if self._background is None or self._background_size != size:
+            bg = pygame.Surface(size)
+            bg.fill((16, 14, 24))
+            pygame.draw.rect(bg, (72, 62, 88), pygame.Rect(60, 40, 520, 320))
+            for row_y in range(80, 320, 60):
+                for col_x in range(100, 560, 80):
+                    pygame.draw.rect(bg, (236, 210, 120), pygame.Rect(col_x, row_y, 24, 32))
+            pygame.draw.rect(bg, (58, 58, 66), pygame.Rect(0, int(BUST_GROUND_Y), 640, 40))
+            self._background = bg
+            self._background_size = size
+        return self._background
+
     def commands(
         self, events: list[pygame.event.Event], game: Game, dt_seconds: float
     ) -> list[Command]:
@@ -64,14 +84,7 @@ class BustingScene:
         gfx: SpriteFactory,
         text: TextRenderer,
     ) -> None:
-        surface.fill((16, 14, 24))
-        # Building facade with lit windows.
-        pygame.draw.rect(surface, (72, 62, 88), pygame.Rect(60, 40, 520, 320))
-        for row_y in range(80, 320, 60):
-            for col_x in range(100, 560, 80):
-                pygame.draw.rect(surface, (236, 210, 120), pygame.Rect(col_x, row_y, 24, 32))
-        # Pavement.
-        pygame.draw.rect(surface, (58, 58, 66), pygame.Rect(0, int(BUST_GROUND_Y), 640, 40))
+        surface.blit(self._facade_background(surface.get_size()), (0, 0))
         bust = game.bust
         if bust is None:
             return

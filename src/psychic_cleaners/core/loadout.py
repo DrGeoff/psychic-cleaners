@@ -42,3 +42,9 @@ class Loadout:
             return False
         self.bait_charges -= 1
         return True
+
+    def use_snare(self) -> None:
+        """Consume one snare, wasted in a miss/slime/backfire. Direct
+        mutation per contract; the key always exists because entering a
+        bust required free_snares() > 0."""
+        self.counts["snare"] -= 1

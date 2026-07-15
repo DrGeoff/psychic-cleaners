@@ -8,13 +8,13 @@ from psychic_cleaners.core.catalog import ITEMS, VEHICLES, Item, Vehicle
 from psychic_cleaners.core.events import BuyItem, Command, FinishShopping, SelectVehicle
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
+from psychic_cleaners.shell.scenes import _NOTICE_RED
 from psychic_cleaners.shell.text import TextRenderer
 
 _ROWS: list[Vehicle | Item] = [*VEHICLES.values(), *ITEMS.values()]
 
 _WHITE = (235, 235, 235)
 _GREY = (110, 110, 110)
-_RED = (240, 120, 120)
 
 _MARKER_X: Final[int] = 24
 _NAME_X: Final[int] = 44
@@ -89,4 +89,4 @@ class ShopScene:
             if suffix:
                 text.draw(surface, suffix, (_SUFFIX_X, y), size=16, color=color)
         if game.notice is not None:
-            text.draw(surface, game.notice, (24, 376), size=16, color=_RED)
+            text.draw(surface, game.notice, (24, 376), size=16, color=_NOTICE_RED)

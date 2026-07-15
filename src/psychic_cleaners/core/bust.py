@@ -21,7 +21,7 @@ from psychic_cleaners.core.constants import (
     SNARE_WIDTH,
 )
 from psychic_cleaners.core.events import BeamsCrossed, Event
-from psychic_cleaners.core.geometry import Vec, segments_cross
+from psychic_cleaners.core.geometry import Vec, clamp, segments_cross
 from psychic_cleaners.core.rng import Rng
 
 
@@ -43,10 +43,6 @@ class BustOutcome(enum.Enum):
 _MOVABLE_PHASES = (BustPhase.POSITION_LEFT, BustPhase.POSITION_RIGHT, BustPhase.SNARE)
 
 
-def _clamp(value: float, lo: float, hi: float) -> float:
-    return max(lo, min(hi, value))
-
-
 @dataclass
 class BustSim:
     phase: BustPhase = BustPhase.POSITION_LEFT
@@ -62,7 +58,7 @@ class BustSim:
 
     def move(self, dx: float) -> None:
         if self.phase in _MOVABLE_PHASES:
-            self.cursor_x = _clamp(self.cursor_x + dx, BUST_MIN_X, BUST_MAX_X)
+            self.cursor_x = clamp(self.cursor_x + dx, BUST_MIN_X, BUST_MAX_X)
 
     def place(self) -> None:
         if self.phase is BustPhase.POSITION_LEFT:
@@ -97,7 +93,7 @@ class BustSim:
         # forbidden "crossed streams" look) even when the ghost sits dead
         # centre between the cleaners.
         aim = self.ghost_x - BEAM_AIM_SPREAD if x <= other_x else self.ghost_x + BEAM_AIM_SPREAD
-        tilt = _clamp(aim - x, -BEAM_MAX_TILT, BEAM_MAX_TILT)
+        tilt = clamp(aim - x, -BEAM_MAX_TILT, BEAM_MAX_TILT)
         return ((x, BUST_GROUND_Y), (x + tilt, BEAM_TOP_Y))
 
     def tick(self, dt_seconds: float, rng: Rng) -> list[Event]:
@@ -116,8 +112,8 @@ class BustSim:
         if abs(self.ghost_x - nearer) <= SNARE_WIDTH:
             away = 1.0 if farther >= nearer else -1.0
             self.ghost_x += away * GHOST_REPEL_SPEED * dt_seconds
-        self.ghost_x = _clamp(self.ghost_x, BUST_MIN_X, BUST_MAX_X)
-        self.ghost_y = _clamp(self.ghost_y, BEAM_TOP_Y, BUST_GROUND_Y)
+        self.ghost_x = clamp(self.ghost_x, BUST_MIN_X, BUST_MAX_X)
+        self.ghost_y = clamp(self.ghost_y, BEAM_TOP_Y, BUST_GROUND_Y)
         # Backfire, two triggers: (a) the beams properly cross — a defensive
         # geometric check — or (b) the ghost has sunk low BETWEEN the cleaners
         # (ghost_y >= BEAM_CROSS_GHOST_Y), so both beams angle steeply down at

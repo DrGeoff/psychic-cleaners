@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from psychic_cleaners.core.bust import BustOutcome, BustPhase, BustSim
-from psychic_cleaners.core.catalog import ITEMS, VEHICLES
+from psychic_cleaners.core.catalog import ITEMS, VEHICLES, Item
 from psychic_cleaners.core.city import City
 from psychic_cleaners.core.clock import GameClock
 from psychic_cleaners.core.codec import AccountCodeError, decode_account, encode_account
@@ -158,20 +158,7 @@ class Game:
             for event in world_events:
                 if isinstance(event, WispReachedTower):
                     self.psi.spike(float(WISP_TOWER_PSI_JUMP))
-            # Spec 4.3/4.7: max PSI summons the Warden and the Locksmith; the
-            # finale unlocks only once BOTH have walked to the Tower.
-            if self.psi.at_max and self.convergence is None and not self.finale_unlocked:
-                self.convergence = Convergence.start()
-                events.append(ConvergenceStarted())
-            elif self.convergence is not None and not self.finale_unlocked:
-                self.convergence.tick(dt_seconds)
-                if self.convergence.arrived:
-                    self.finale_unlocked = True
-                    if self.notice == _CONVERGING_NOTICE:
-                        # The Tower just opened: don't let a still-live turn-away
-                        # notice claim otherwise. Unrelated notices stay up.
-                        self._clear_notice()
-                    events.append(FinaleUnlocked())
+            self._tick_convergence(dt_seconds, events)
             if self.drive is not None and self.drive.arrived:
                 assert self.destination is not None
                 events.extend(self._arrive_at(self.destination))
@@ -184,10 +171,7 @@ class Game:
                 and self.loadout is not None
                 and self._cannot_field_snare()
             ):
-                reason = "no snares left — the franchise folds"
-                self.result = "lost"
-                self.lose_reason = reason
-                events.append(GameLost(reason))
+                self._lose("no snares left — the franchise folds", events)
                 self._change_scene(SceneId.GAME_OVER, events)
         if scene is SceneId.FINALE:
             events.extend(self._tick_finale(dt_seconds))
@@ -239,6 +223,27 @@ class Game:
         """Route back to MAP (if not already there) and append a rejection."""
         self._ensure_map(events)
         events.append(self._reject(reason, make_event))
+
+    def _lose(self, reason: str, events: list[Event]) -> None:
+        self.result = "lost"
+        self.lose_reason = reason
+        events.append(GameLost(reason))
+
+    def _tick_convergence(self, dt_seconds: float, events: list[Event]) -> None:
+        """Spec 4.3/4.7: max PSI summons the Warden and the Locksmith; the
+        finale unlocks only once BOTH have walked to the Tower."""
+        if self.psi.at_max and self.convergence is None and not self.finale_unlocked:
+            self.convergence = Convergence.start()
+            events.append(ConvergenceStarted())
+        elif self.convergence is not None and not self.finale_unlocked:
+            self.convergence.tick(dt_seconds)
+            if self.convergence.arrived:
+                self.finale_unlocked = True
+                if self.notice == _CONVERGING_NOTICE:
+                    # The Tower just opened: don't let a still-live turn-away
+                    # notice claim otherwise. Unrelated notices stay up.
+                    self._clear_notice()
+                events.append(FinaleUnlocked())
 
     def _tick_drive(self, dt_seconds: float) -> list[Event]:
         assert self.drive is not None
@@ -357,17 +362,8 @@ class Game:
                 item = ITEMS.get(item_id)
                 if item is None:
                     events.append(self._reject("unknown item", PurchaseRejected))
-                elif self.loadout is None:
-                    events.append(self._reject("choose a vehicle first", PurchaseRejected))
-                elif not self.wallet.can_afford(item.price):
-                    events.append(self._reject("cannot afford", PurchaseRejected))
-                elif not self.loadout.can_add(item_id):
-                    events.append(self._reject("no room in vehicle", PurchaseRejected))
                 else:
-                    self.wallet.spend(item.price)
-                    self.loadout.add(item_id)
-                    self._clear_notice()
-                    events.append(ItemBought(item_id))
+                    events.append(self._purchase(item_id, item))
             case FinishShopping():
                 too_broke = not self.wallet.can_afford(ITEMS["snare"].price)
                 if self.loadout is None:
@@ -414,16 +410,27 @@ class Game:
         """Mid-game snare restock: only "snare", and only at the Depot."""
         if item_id != "snare" or self.position != DEPOT_POS:
             return [self._reject("snares only, at the Depot", PurchaseRejected)]
-        if self.loadout is None:  # defensive: MAP is unreachable without a vehicle
-            return [self._reject("choose a vehicle first", PurchaseRejected)]
-        if not self.wallet.can_afford(ITEMS["snare"].price):
-            return [self._reject("cannot afford", PurchaseRejected)]
-        if not self.loadout.can_add("snare"):
-            return [self._reject("no room in vehicle", PurchaseRejected)]
-        self.wallet.spend(ITEMS["snare"].price)
-        self.loadout.add("snare")
+        return [self._purchase("snare", ITEMS["snare"])]
+
+    def _purchase(self, item_id: str, item: Item) -> Event:
+        """Shared afford/capacity check and spend+add+clear_notice sequence.
+
+        Callers have already validated the item exists and applies here
+        (unknown-item lookup in the shop; "snare only, at the Depot" here).
+        The loadout-None check is reachable from the shop (buying before
+        picking a vehicle) but defensive from the Depot (MAP is unreachable
+        without one already).
+        """
+        if self.loadout is None:
+            return self._reject("choose a vehicle first", PurchaseRejected)
+        if not self.wallet.can_afford(item.price):
+            return self._reject("cannot afford", PurchaseRejected)
+        if not self.loadout.can_add(item_id):
+            return self._reject("no room in vehicle", PurchaseRejected)
+        self.wallet.spend(item.price)
+        self.loadout.add(item_id)
         self._clear_notice()
-        return [ItemBought("snare")]
+        return ItemBought(item_id)
 
     def _arrive_at(self, pos: GridPos) -> list[Event]:
         """Arrival routing: an if/elif chain ending in an `else` that routes to MAP.
@@ -501,15 +508,9 @@ class Game:
                 self.last_account_code = code
                 events.append(GameWon(code))
             else:
-                reason = "the franchise never turned a profit"
-                self.result = "lost"
-                self.lose_reason = reason
-                events.append(GameLost(reason))
+                self._lose("the franchise never turned a profit", events)
         elif outcome is FinaleOutcome.LOST:
-            reason = "the Tower claimed the city"
-            self.result = "lost"
-            self.lose_reason = reason
-            events.append(GameLost(reason))
+            self._lose("the Tower claimed the city", events)
         if outcome is not None:
             self.finale = None
             self._change_scene(SceneId.GAME_OVER, events)
@@ -534,18 +535,16 @@ class Game:
             self.city.clear_haunt(self.position)
             events.append(HauntCleared(self.position))
         elif bust.outcome is BustOutcome.MISSED:
-            # Wasted snare. Direct mutation per contract; the key exists because
-            # entering a bust required free_snares() > 0.
-            loadout.counts["snare"] -= 1
+            loadout.use_snare()  # wasted
             events.append(BustMissed())
         elif bust.outcome is BustOutcome.SLIMED:
-            loadout.counts["snare"] -= 1
+            loadout.use_snare()  # wasted
             side = bust.slimed_side if bust.slimed_side is not None else 0
             idx = unslimed[side]
             self.slimed.add(idx)
             events.append(CleanerSlimed(idx))
         elif bust.outcome is BustOutcome.BACKFIRE:
-            loadout.counts["snare"] -= 1
+            loadout.use_snare()  # wasted
             for idx in unslimed[:2]:
                 self.slimed.add(idx)
                 events.append(CleanerSlimed(idx))

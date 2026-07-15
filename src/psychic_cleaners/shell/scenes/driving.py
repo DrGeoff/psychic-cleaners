@@ -32,6 +32,29 @@ def _lane_center_y(lane: int) -> int:
 
 
 class DrivingScene:
+    def __init__(self) -> None:
+        # The lane bands and dashed boundaries never change for the life of
+        # the scene; render them once and blit the cached surface instead of
+        # ~35 draw calls every frame.
+        self._background: pygame.Surface | None = None
+        self._background_size: tuple[int, int] | None = None
+
+    def _road_background(self, size: tuple[int, int]) -> pygame.Surface:
+        if self._background is None or self._background_size != size:
+            width = size[0]
+            bg = pygame.Surface(size)
+            bg.fill(_GRASS)
+            for lane in range(DRIVE_LANES):
+                band = pygame.Rect(0, _ROAD_TOP + lane * _LANE_HEIGHT, width, _LANE_HEIGHT)
+                pygame.draw.rect(bg, _LANE_COLORS[lane % len(_LANE_COLORS)], band)
+            for boundary in range(1, DRIVE_LANES):
+                y = _ROAD_TOP + boundary * _LANE_HEIGHT
+                for x in range(0, width, 40):
+                    pygame.draw.line(bg, _LANE_MARK, (x, y), (x + 20, y), 2)
+            self._background = bg
+            self._background_size = size
+        return self._background
+
     def commands(
         self, events: list[pygame.event.Event], game: Game, dt_seconds: float
     ) -> list[Command]:
@@ -53,15 +76,7 @@ class DrivingScene:
         gfx: SpriteFactory,
         text: TextRenderer,
     ) -> None:
-        surface.fill(_GRASS)
-        width = surface.get_width()
-        for lane in range(DRIVE_LANES):
-            band = pygame.Rect(0, _ROAD_TOP + lane * _LANE_HEIGHT, width, _LANE_HEIGHT)
-            pygame.draw.rect(surface, _LANE_COLORS[lane % len(_LANE_COLORS)], band)
-        for boundary in range(1, DRIVE_LANES):
-            y = _ROAD_TOP + boundary * _LANE_HEIGHT
-            for x in range(0, width, 40):
-                pygame.draw.line(surface, _LANE_MARK, (x, y), (x + 20, y), 2)
+        surface.blit(self._road_background(surface.get_size()), (0, 0))
         drive = game.drive
         loadout = game.loadout
         if drive is None or loadout is None:

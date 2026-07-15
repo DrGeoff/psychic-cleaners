@@ -11,6 +11,9 @@ from psychic_cleaners.core.giant import MascotState
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.text import TextRenderer
 
+# Shared by every scene that draws game.notice as a rejection message.
+_NOTICE_RED: tuple[int, int, int] = (240, 120, 120)
+
 
 class Scene(Protocol):
     """One thin shell module per core mechanic: input -> Commands, state -> pixels.

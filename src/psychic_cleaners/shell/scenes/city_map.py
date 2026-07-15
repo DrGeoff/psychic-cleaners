@@ -13,14 +13,13 @@ from psychic_cleaners.core.constants import (
 from psychic_cleaners.core.events import BuyItem, Command, DeployBait, GridPos, SetDestination
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes import _draw_mascot_banner
+from psychic_cleaners.shell.scenes import _NOTICE_RED, _draw_mascot_banner
 from psychic_cleaners.shell.text import TextRenderer
 
 _CELL: int = 56
 _ORIGIN_X: int = 40
 _ORIGIN_Y: int = 12
 _HUD_Y: int = 356
-_RED: tuple[int, int, int] = (240, 120, 120)
 _CAR_MARKER: tuple[int, int, int] = (250, 250, 250)
 _CAR_MARKER_OUTLINE: tuple[int, int, int] = (30, 30, 40)
 _CONTROL_HINT: str = "Arrows: move cursor - Enter: travel - B: bait"
@@ -28,6 +27,11 @@ _CONTROL_HINT: str = "Arrows: move cursor - Enter: travel - B: bait"
 
 def _cell_rect(pos: GridPos) -> pygame.Rect:
     return pygame.Rect(_ORIGIN_X + pos[0] * _CELL + 4, _ORIGIN_Y + pos[1] * _CELL + 4, 48, 48)
+
+
+def _grid_center_px(x: float, y: float) -> tuple[int, int]:
+    """Pixel center of a fractional grid coordinate (e.g. a wisp or walker)."""
+    return (int(_ORIGIN_X + x * _CELL + _CELL / 2), int(_ORIGIN_Y + y * _CELL + _CELL / 2))
 
 
 class CityMapScene:
@@ -101,9 +105,8 @@ class CityMapScene:
             # wisps are invisible without the residue detector
             wisp_sprite = gfx.get("wisp")
             for wisp in game.city.wisps:
-                px = int(_ORIGIN_X + wisp.x * _CELL + _CELL / 2) - 8
-                py = int(_ORIGIN_Y + wisp.y * _CELL + _CELL / 2) - 8
-                surface.blit(wisp_sprite, (px, py))
+                cx, cy = _grid_center_px(wisp.x, wisp.y)
+                surface.blit(wisp_sprite, (cx - 8, cy - 8))
         if game.convergence is not None:
             # The Warden and the Locksmith are visible without any detector:
             # their walk toward the Tower is the endgame telegraph.
@@ -112,9 +115,8 @@ class CityMapScene:
                 ("locksmith", game.convergence.locksmith),
             ):
                 sprite = gfx.get(name)
-                px = int(_ORIGIN_X + walker.x * _CELL + _CELL / 2) - sprite.get_width() // 2
-                py = int(_ORIGIN_Y + walker.y * _CELL + _CELL / 2) - sprite.get_height() // 2
-                surface.blit(sprite, (px, py))
+                cx, cy = _grid_center_px(walker.x, walker.y)
+                surface.blit(sprite, (cx - sprite.get_width() // 2, cy - sprite.get_height() // 2))
         # Player marker: drawn AFTER every cell sprite (buildings, tower,
         # depot, wisps) so it stays visible even when parked on the Depot
         # tile, with a dark outline for contrast against any cell colour.
@@ -144,7 +146,7 @@ class CityMapScene:
             hint = f"S: buy snare (${ITEMS['snare'].price})"
             text.draw(surface, hint, (430, _HUD_Y + 18), size=16)
         if game.notice is not None:
-            text.draw(surface, game.notice, (10, _HUD_Y + 32), size=16, color=_RED)
+            text.draw(surface, game.notice, (10, _HUD_Y + 32), size=16, color=_NOTICE_RED)
         else:
             # A first-time player never trips a notice, so this row would
             # otherwise stay blank for the whole game.

@@ -13,6 +13,7 @@ from psychic_cleaners.core.constants import (
     VACUUM_BOUNTY,
 )
 from psychic_cleaners.core.events import Event, WispCaptured
+from psychic_cleaners.core.geometry import clamp
 from psychic_cleaners.core.rng import Rng
 
 
@@ -34,7 +35,7 @@ class DriveSim:
     wisps: list[RoadWisp] = field(default_factory=list)
 
     def steer(self, delta: int) -> None:
-        self.lane = max(0, min(DRIVE_LANES - 1, self.lane + delta))
+        self.lane = clamp(self.lane + delta, 0, DRIVE_LANES - 1)
 
     def tick(self, dt_seconds: float, rng: Rng) -> list[Event]:
         events: list[Event] = []

@@ -7,6 +7,7 @@ from psychic_cleaners.core.constants import (
     PSI_HAUNT_GROWTH_PER_REAL_MINUTE,
     PSI_MAX,
 )
+from psychic_cleaners.core.geometry import clamp
 
 
 @dataclass
@@ -20,11 +21,11 @@ class PsiModel:
         self.psi += rate * dt_seconds / 60.0
 
     def spike(self, amount: float) -> None:
-        self.psi = min(max(self.psi + amount, 0.0), float(PSI_MAX))
+        self.psi = clamp(self.psi + amount, 0.0, float(PSI_MAX))
 
     @property
     def value(self) -> int:
-        return min(max(int(self.psi), 0), PSI_MAX)
+        return clamp(int(self.psi), 0, PSI_MAX)
 
     @property
     def at_max(self) -> bool:
