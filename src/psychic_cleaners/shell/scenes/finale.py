@@ -21,7 +21,9 @@ _DOOR: Final[tuple[int, int, int]] = (94, 62, 30)
 class FinaleScene:
     """The Tower door run: the giant bounces, cleaners dash for the door."""
 
-    def commands(self, events: list[pygame.event.Event], game: Game) -> list[Command]:
+    def commands(
+        self, events: list[pygame.event.Event], game: Game, dt_seconds: float
+    ) -> list[Command]:
         out: list[Command] = []
         for event in events:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:

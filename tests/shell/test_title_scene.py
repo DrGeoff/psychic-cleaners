@@ -24,48 +24,52 @@ def _game() -> Game:
 
 def test_textinput_appends_to_name_field() -> None:
     scene = TitleScene()
-    scene.commands([_text("P"), _text("a"), _text("t")], _game())
+    scene.commands([_text("P"), _text("a"), _text("t")], _game(), 1 / 60)
     assert scene._name == "Pat"
     assert scene._code == ""
 
 
 def test_tab_moves_focus_and_code_is_uppercased() -> None:
     scene = TitleScene()
-    scene.commands([_text("P"), _key(pygame.K_TAB), _text("a"), _text("b"), _text("7")], _game())
+    scene.commands(
+        [_text("P"), _key(pygame.K_TAB), _text("a"), _text("b"), _text("7")], _game(), 1 / 60
+    )
     assert scene._name == "P"
     assert scene._code == "AB7"
 
 
 def test_tab_toggles_back_to_name() -> None:
     scene = TitleScene()
-    scene.commands([_key(pygame.K_TAB), _key(pygame.K_TAB), _text("x")], _game())
+    scene.commands([_key(pygame.K_TAB), _key(pygame.K_TAB), _text("x")], _game(), 1 / 60)
     assert scene._name == "x"
     assert scene._code == ""
 
 
 def test_backspace_edits_the_focused_field() -> None:
     scene = TitleScene()
-    scene.commands([_text("P"), _text("a"), _key(pygame.K_BACKSPACE)], _game())
+    scene.commands([_text("P"), _text("a"), _key(pygame.K_BACKSPACE)], _game(), 1 / 60)
     assert scene._name == "P"
-    scene.commands([_key(pygame.K_TAB), _text("x"), _key(pygame.K_BACKSPACE)], _game())
+    scene.commands([_key(pygame.K_TAB), _text("x"), _key(pygame.K_BACKSPACE)], _game(), 1 / 60)
     assert scene._code == ""
     # Backspace on an already-empty field is a no-op, not an error.
-    scene.commands([_key(pygame.K_BACKSPACE)], _game())
+    scene.commands([_key(pygame.K_BACKSPACE)], _game(), 1 / 60)
     assert scene._code == ""
 
 
 def test_field_length_limits() -> None:
     scene = TitleScene()
-    scene.commands([_text("a")] * 25, _game())
+    scene.commands([_text("a")] * 25, _game(), 1 / 60)
     assert scene._name == "a" * 20
-    scene.commands([_key(pygame.K_TAB)], _game())
-    scene.commands([_text("b")] * 10, _game())
+    scene.commands([_key(pygame.K_TAB)], _game(), 1 / 60)
+    scene.commands([_text("b")] * 10, _game(), 1 / 60)
     assert scene._code == "B" * 7
 
 
 def test_enter_with_empty_code_emits_new_game() -> None:
     scene = TitleScene()
-    out = scene.commands([_text("P"), _text("a"), _text("t"), _key(pygame.K_RETURN)], _game())
+    out = scene.commands(
+        [_text("P"), _text("a"), _text("t"), _key(pygame.K_RETURN)], _game(), 1 / 60
+    )
     assert out == [NewGame("Pat")]
     # Enter no longer clears the buffers itself: only an explicit reset()
     # (driven by the shell on a TITLE transition) does that. Otherwise a
@@ -76,8 +80,8 @@ def test_enter_with_empty_code_emits_new_game() -> None:
 
 def test_enter_with_code_emits_enter_account() -> None:
     scene = TitleScene()
-    scene.commands([_text("P"), _text("a"), _text("t"), _key(pygame.K_TAB)], _game())
-    out = scene.commands([_text(ch) for ch in "cpdg8jx"] + [_key(pygame.K_RETURN)], _game())
+    scene.commands([_text("P"), _text("a"), _text("t"), _key(pygame.K_TAB)], _game(), 1 / 60)
+    out = scene.commands([_text(ch) for ch in "cpdg8jx"] + [_key(pygame.K_RETURN)], _game(), 1 / 60)
     assert out == [EnterAccount("Pat", "CPDG8JX")]
     # A REJECTED code must keep BOTH fields so the player can fix a typo.
     assert scene._name == "Pat"
@@ -86,7 +90,9 @@ def test_enter_with_code_emits_enter_account() -> None:
 
 def test_reset_clears_both_fields_and_refocuses_name() -> None:
     scene = TitleScene()
-    scene.commands([_text("P"), _text("a"), _text("t"), _key(pygame.K_TAB), _text("x")], _game())
+    scene.commands(
+        [_text("P"), _text("a"), _text("t"), _key(pygame.K_TAB), _text("x")], _game(), 1 / 60
+    )
     assert scene._name == "Pat"
     assert scene._code == "X"
     assert scene._focus is _Field.CODE
@@ -101,16 +107,16 @@ def test_reset_clears_both_fields_and_refocuses_name() -> None:
 
 def test_enter_ignored_while_name_empty() -> None:
     scene = TitleScene()
-    assert scene.commands([_key(pygame.K_RETURN)], _game()) == []
-    scene.commands([_text(" ")], _game())  # whitespace-only name still counts as empty
-    assert scene.commands([_key(pygame.K_RETURN)], _game()) == []
+    assert scene.commands([_key(pygame.K_RETURN)], _game(), 1 / 60) == []
+    scene.commands([_text(" ")], _game(), 1 / 60)  # whitespace-only name still counts as empty
+    assert scene.commands([_key(pygame.K_RETURN)], _game(), 1 / 60) == []
 
 
 def test_draw_smoke() -> None:
     pygame.init()  # dummy video/audio drivers via tests/conftest.py
     surface = pygame.Surface(LOGICAL_SIZE)
     scene = TitleScene()
-    scene.commands([_text("P"), _key(pygame.K_TAB), _text("x")], _game())
+    scene.commands([_text("P"), _key(pygame.K_TAB), _text("x")], _game(), 1 / 60)
     scene.draw(surface, _game(), SpriteFactory(), TextRenderer())
     rejected = _game()
     rejected.notice = "invalid account code"

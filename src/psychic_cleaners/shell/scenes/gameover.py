@@ -20,7 +20,9 @@ _CODE: Final[tuple[int, int, int]] = (120, 240, 160)
 class GameOverScene:
     """Shows WON/LOST, the new account code on a win, the reason on a loss."""
 
-    def commands(self, events: list[pygame.event.Event], game: Game) -> list[Command]:
+    def commands(
+        self, events: list[pygame.event.Event], game: Game, dt_seconds: float
+    ) -> list[Command]:
         out: list[Command] = []
         for event in events:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:

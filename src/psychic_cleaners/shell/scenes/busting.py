@@ -29,18 +29,16 @@ _HINTS: dict[BustPhase, str] = {
 
 
 class BustingScene:
-    def commands(self, events: list[pygame.event.Event], game: Game) -> list[Command]:
-        # Runtime import: app.py imports the scene modules at import time, so a
-        # module-level import of shell.app here would be circular.
-        from psychic_cleaners.shell.app import FPS
-
+    def commands(
+        self, events: list[pygame.event.Event], game: Game, dt_seconds: float
+    ) -> list[Command]:
         bust = game.bust
         if bust is None:
             return []
         cmds: list[Command] = []
         if bust.phase in _POSITIONING:
             pressed = pygame.key.get_pressed()
-            step = CLEANER_SPEED / FPS
+            step = CLEANER_SPEED * dt_seconds
             if pressed[pygame.K_LEFT]:
                 cmds.append(MoveCleaner(-step))
             if pressed[pygame.K_RIGHT]:

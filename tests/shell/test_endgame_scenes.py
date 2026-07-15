@@ -39,13 +39,13 @@ def test_mascot_sprite_is_72_by_96() -> None:
 
 def test_finale_space_sends_start_run() -> None:
     game = new_game(1)
-    assert FinaleScene().commands([_key(pygame.K_SPACE)], game) == [StartRun()]
+    assert FinaleScene().commands([_key(pygame.K_SPACE)], game, 1 / 60) == [StartRun()]
 
 
 def test_finale_ignores_other_keys() -> None:
     game = new_game(1)
     events = [_key(pygame.K_RETURN), pygame.event.Event(pygame.KEYUP, key=pygame.K_SPACE)]
-    assert FinaleScene().commands(events, game) == []
+    assert FinaleScene().commands(events, game, 1 / 60) == []
 
 
 def _finale_game() -> Game:
@@ -121,12 +121,12 @@ def test_finale_prompt_hidden_when_nobody_remains_outside(surface: pygame.Surfac
 
 def test_gameover_return_sends_continue() -> None:
     game = new_game(1)
-    assert GameOverScene().commands([_key(pygame.K_RETURN)], game) == [Continue()]
+    assert GameOverScene().commands([_key(pygame.K_RETURN)], game, 1 / 60) == [Continue()]
 
 
 def test_gameover_ignores_other_keys() -> None:
     game = new_game(1)
-    assert GameOverScene().commands([_key(pygame.K_SPACE)], game) == []
+    assert GameOverScene().commands([_key(pygame.K_SPACE)], game, 1 / 60) == []
 
 
 def test_gameover_draw_smoke_won_with_code(surface: pygame.Surface) -> None:

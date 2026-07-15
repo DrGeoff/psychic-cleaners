@@ -54,7 +54,9 @@ class TitleScene:
         self._code: str = ""
         self._focus: _Field = _Field.NAME
 
-    def commands(self, events: list[pygame.event.Event], game: Game) -> list[Command]:
+    def commands(
+        self, events: list[pygame.event.Event], game: Game, dt_seconds: float
+    ) -> list[Command]:
         out: list[Command] = []
         for event in events:
             if event.type == pygame.TEXTINPUT:

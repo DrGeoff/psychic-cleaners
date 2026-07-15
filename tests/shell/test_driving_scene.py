@@ -65,13 +65,13 @@ def _driving_game() -> Game:
 def test_up_key_steers_toward_lane_zero() -> None:
     scene = DrivingScene()
     events = [pygame.event.Event(pygame.KEYDOWN, key=pygame.K_UP)]
-    assert scene.commands(events, _driving_game()) == [Steer(delta=-1)]
+    assert scene.commands(events, _driving_game(), 1 / 60) == [Steer(delta=-1)]
 
 
 def test_down_key_steers_toward_last_lane() -> None:
     scene = DrivingScene()
     events = [pygame.event.Event(pygame.KEYDOWN, key=pygame.K_DOWN)]
-    assert scene.commands(events, _driving_game()) == [Steer(delta=1)]
+    assert scene.commands(events, _driving_game(), 1 / 60) == [Steer(delta=1)]
 
 
 def test_other_events_produce_no_commands() -> None:
@@ -80,7 +80,7 @@ def test_other_events_produce_no_commands() -> None:
         pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE),
         pygame.event.Event(pygame.KEYUP, key=pygame.K_UP),
     ]
-    assert scene.commands(events, _driving_game()) == []
+    assert scene.commands(events, _driving_game(), 1 / 60) == []
 
 
 def test_draw_renders_an_active_drive_without_error() -> None:

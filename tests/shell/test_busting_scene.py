@@ -14,7 +14,7 @@ from psychic_cleaners.core.events import (
 )
 from psychic_cleaners.core.game import Game, new_game
 from psychic_cleaners.core.giant import MascotState
-from psychic_cleaners.shell.app import FPS, SCENES
+from psychic_cleaners.shell.app import SCENES
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.scenes.busting import _HINTS, BustingScene
 from psychic_cleaners.shell.text import TextRenderer
@@ -59,22 +59,36 @@ def test_held_arrows_move_cursor_in_positioning_phases(
     monkeypatch: pytest.MonkeyPatch, bust_game: Game
 ) -> None:
     scene = BustingScene()
-    step = CLEANER_SPEED / FPS
+    step = CLEANER_SPEED * (1 / 60)
     _press(monkeypatch, pygame.K_LEFT)
-    assert scene.commands([], bust_game) == [MoveCleaner(-step)]
+    assert scene.commands([], bust_game, 1 / 60) == [MoveCleaner(-step)]
     _press(monkeypatch, pygame.K_RIGHT)
-    assert scene.commands([], bust_game) == [MoveCleaner(step)]
+    assert scene.commands([], bust_game, 1 / 60) == [MoveCleaner(step)]
     assert bust_game.bust is not None
     bust_game.bust.phase = BustPhase.SNARE
     _press(monkeypatch, pygame.K_LEFT)
-    assert scene.commands([], bust_game) == [MoveCleaner(-step)]
+    assert scene.commands([], bust_game, 1 / 60) == [MoveCleaner(-step)]
+
+
+def test_held_arrow_movement_is_time_proportional(
+    monkeypatch: pytest.MonkeyPatch, bust_game: Game
+) -> None:
+    """A long (clamped) frame moves the cursor further: dt=1/30 covers twice dt=1/60."""
+    scene = BustingScene()
+    _press(monkeypatch, pygame.K_RIGHT)
+    (fast,) = scene.commands([], bust_game, 1 / 60)
+    (slow,) = scene.commands([], bust_game, 1 / 30)
+    assert isinstance(fast, MoveCleaner)
+    assert isinstance(slow, MoveCleaner)
+    assert fast.dx == pytest.approx(CLEANER_SPEED / 60)
+    assert slow.dx == pytest.approx(2 * fast.dx)
 
 
 def test_arrows_ignored_when_active(monkeypatch: pytest.MonkeyPatch, bust_game: Game) -> None:
     assert bust_game.bust is not None
     bust_game.bust.phase = BustPhase.ACTIVE
     _press(monkeypatch, pygame.K_LEFT, pygame.K_RIGHT)
-    assert BustingScene().commands([], bust_game) == []
+    assert BustingScene().commands([], bust_game, 1 / 60) == []
 
 
 def test_enter_places_cleaners_then_lays_snare(
@@ -84,20 +98,20 @@ def test_enter_places_cleaners_then_lays_snare(
     _press(monkeypatch)  # nothing held
     enter = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN)
     assert bust_game.bust is not None
-    assert scene.commands([enter], bust_game) == [PlaceCleaner()]
+    assert scene.commands([enter], bust_game, 1 / 60) == [PlaceCleaner()]
     bust_game.bust.phase = BustPhase.POSITION_RIGHT
-    assert scene.commands([enter], bust_game) == [PlaceCleaner()]
+    assert scene.commands([enter], bust_game, 1 / 60) == [PlaceCleaner()]
     bust_game.bust.phase = BustPhase.SNARE
-    assert scene.commands([enter], bust_game) == [LaySnare()]
+    assert scene.commands([enter], bust_game, 1 / 60) == [LaySnare()]
     bust_game.bust.phase = BustPhase.ACTIVE
-    assert scene.commands([enter], bust_game) == []
+    assert scene.commands([enter], bust_game, 1 / 60) == []
 
 
 def test_space_springs_snare(bust_game: Game) -> None:
     assert bust_game.bust is not None
     bust_game.bust.phase = BustPhase.ACTIVE
     space = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE)
-    assert BustingScene().commands([space], bust_game) == [SpringSnare()]
+    assert BustingScene().commands([space], bust_game, 1 / 60) == [SpringSnare()]
 
 
 def test_space_emits_snare_command_in_non_active_phases(
@@ -109,7 +123,7 @@ def test_space_emits_snare_command_in_non_active_phases(
     bust_game.bust.phase = BustPhase.POSITION_LEFT
     space = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE)
     _press(monkeypatch)  # initialize pygame key system with empty pressed keys
-    assert BustingScene().commands([space], bust_game) == [SpringSnare()]
+    assert BustingScene().commands([space], bust_game, 1 / 60) == [SpringSnare()]
 
 
 def test_bust_scene_registered() -> None:
