@@ -14,7 +14,7 @@ from psychic_cleaners.core.events import (
 )
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes import _draw_mascot_banner
+from psychic_cleaners.shell.scenes import _blit_bottom_aligned, _draw_mascot_banner
 from psychic_cleaners.shell.text import TextRenderer
 
 _POSITIONING = (BustPhase.POSITION_LEFT, BustPhase.POSITION_RIGHT, BustPhase.SNARE)
@@ -79,15 +79,15 @@ class BustingScene:
         for side, x in enumerate((bust.left_x, bust.right_x)):
             if x is not None:
                 name = "cleaner.slimed" if bust.slimed_side == side else "cleaner"
-                _blit_on_ground(surface, gfx.get(name), x)
+                _blit_bottom_aligned(surface, gfx.get(name), x, BUST_GROUND_Y)
         # Cursor: a cleaner while positioning, the snare while aiming it.
         if bust.phase in (BustPhase.POSITION_LEFT, BustPhase.POSITION_RIGHT):
-            _blit_on_ground(surface, gfx.get("cleaner"), bust.cursor_x)
+            _blit_bottom_aligned(surface, gfx.get("cleaner"), bust.cursor_x, BUST_GROUND_Y)
         elif bust.phase is BustPhase.SNARE:
-            _blit_on_ground(surface, gfx.get("snare"), bust.cursor_x)
+            _blit_bottom_aligned(surface, gfx.get("snare"), bust.cursor_x, BUST_GROUND_Y)
         # Laid snare.
         if bust.snare_x is not None:
-            _blit_on_ground(surface, gfx.get("snare"), bust.snare_x)
+            _blit_bottom_aligned(surface, gfx.get("snare"), bust.snare_x, BUST_GROUND_Y)
         # The smudge.
         smudge = gfx.get("smudge")
         smudge_pos = (
@@ -104,10 +104,3 @@ class BustingScene:
         # the top-of-screen mascot banner can never overprint it.
         text.draw(surface, _HINTS[bust.phase], (20, 380), size=16)
         _draw_mascot_banner(surface, game, text)
-
-
-def _blit_on_ground(surface: pygame.Surface, sprite: pygame.Surface, x: float) -> None:
-    surface.blit(
-        sprite,
-        (int(x - sprite.get_width() / 2), int(BUST_GROUND_Y - sprite.get_height())),
-    )

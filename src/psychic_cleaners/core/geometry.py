@@ -1,6 +1,24 @@
-"""Strict proper segment intersection, used for beam-crossing detection."""
+"""Strict proper segment intersection, and straight-line approach-and-stop
+motion shared by wisps (core/city.py) and the convergence walkers
+(core/convergence.py)."""
+
+import math
 
 type Vec = tuple[float, float]
+
+
+def move_toward(
+    x: float, y: float, target_x: float, target_y: float, max_step: float, stop_radius: float = 0.0
+) -> tuple[float, float]:
+    """Step (x, y) toward (target_x, target_y) by at most max_step, never
+    closer than stop_radius. Already within stop_radius: unchanged."""
+    dx = target_x - x
+    dy = target_y - y
+    length = math.hypot(dx, dy)
+    if length <= stop_radius:
+        return x, y
+    step = min(max_step, length - stop_radius)
+    return x + dx / length * step, y + dy / length * step
 
 
 def _orient(a: Vec, b: Vec, c: Vec) -> float:

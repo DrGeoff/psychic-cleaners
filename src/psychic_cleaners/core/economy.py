@@ -34,6 +34,15 @@ class Wallet:
         self.balance -= charged
         return charged
 
+    def profited_over(self, starting_balance: int) -> bool:
+        """True if strictly ahead of `starting_balance`, or pinned at the cap.
+
+        A wallet clamped at MAX_BANKROLL can never satisfy a strict ">"
+        against a starting balance that was itself at the cap, so sitting
+        at the cap counts as profitable too.
+        """
+        return self.balance > starting_balance or self.balance >= MAX_BANKROLL
+
 
 def bust_fee(psi_value: int) -> int:
     """City fee for a successful bust: base fee plus a step per 1000 PSI."""

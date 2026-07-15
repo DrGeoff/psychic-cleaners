@@ -9,7 +9,7 @@ Game.tick keeps the contract's canonical three-step shape:
 1. command dispatch, 2. scene/world ticking, 3. post-tick resolution.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -23,7 +23,6 @@ from psychic_cleaners.core.constants import (
     CONTAINMENT_RIG_CAPACITY,
     DEPOT_POS,
     FINALE_NEEDED_INSIDE,
-    MAX_BANKROLL,
     NOTICE_LIFETIME_SECONDS,
     STARTING_BANKROLL,
     STOMP_FINE,
@@ -171,27 +170,19 @@ class Game:
                     if self.notice == _CONVERGING_NOTICE:
                         # The Tower just opened: don't let a still-live turn-away
                         # notice claim otherwise. Unrelated notices stay up.
-                        self.notice = None
-                        self.notice_remaining = 0.0
+                        self._clear_notice()
                     events.append(FinaleUnlocked())
             if self.drive is not None and self.drive.arrived:
                 assert self.destination is not None
                 events.extend(self._arrive_at(self.destination))
             if self.bust is not None and self.bust.phase is BustPhase.RESOLVED:
                 events.extend(self._resolve_bust())
-            # Bankruptcy: the franchise folds only when it cannot field a snare by
-            # ANY means — none free, none full (full snares are emptied back to
-            # free at the Depot), and the Depot restock (MAP-scene
-            # BuyItem("snare")) is unreachable: too broke, or every vehicle slot
-            # is taken by other gear.
+            # Bankruptcy: the franchise folds only when it cannot field a snare
+            # by any means (see _cannot_field_snare).
             if (
                 self.scene in _WORLD_SCENES
                 and self.loadout is not None
-                and self.free_snares() == 0
-                and self.snares_full == 0
-                and (
-                    self.wallet.balance < ITEMS["snare"].price or not self.loadout.can_add("snare")
-                )
+                and self._cannot_field_snare()
             ):
                 reason = "no snares left — the franchise folds"
                 self.result = "lost"
@@ -212,8 +203,7 @@ class Game:
             # not worth tracking the arming tick separately.
             self.notice_remaining -= dt_seconds
             if self.notice_remaining <= 0:
-                self.notice = None
-                self.notice_remaining = 0.0
+                self._clear_notice()
         self.psi.advance(dt_seconds, self.city.active_haunts())
         events = self.city.tick(dt_seconds, self.psi.value, self.rng)
         has_sensor = self.loadout.has("sensor") if self.loadout is not None else False
@@ -229,6 +219,26 @@ class Game:
         """
         self.notice = reason
         self.notice_remaining = NOTICE_LIFETIME_SECONDS
+
+    def _clear_notice(self) -> None:
+        self.notice = None
+        self.notice_remaining = 0.0
+
+    def _reject(self, reason: str, make_event: Callable[[str], Event]) -> Event:
+        """Arm `reason` as the notice and return its rejection event."""
+        self._set_notice(reason)
+        return make_event(reason)
+
+    def _ensure_map(self, events: list[Event]) -> None:
+        if self.scene is not SceneId.MAP:
+            self._change_scene(SceneId.MAP, events)
+
+    def _turn_away(
+        self, reason: str, make_event: Callable[[str], Event], events: list[Event]
+    ) -> None:
+        """Route back to MAP (if not already there) and append a rejection."""
+        self._ensure_map(events)
+        events.append(self._reject(reason, make_event))
 
     def _tick_drive(self, dt_seconds: float) -> list[Event]:
         assert self.drive is not None
@@ -305,8 +315,7 @@ class Game:
             if not command.name.split():
                 # A name that normalizes to empty would make the win-time
                 # encode_account() call raise AccountCodeError.
-                self._set_notice("name must not be empty")
-                return [CommandRejected("name must not be empty")]
+                return [self._reject("name must not be empty", CommandRejected)]
             self._reset()  # restores wallet, loadout, starting_bankroll, notice, ...
             self.player_name = command.name
             self.scene = SceneId.SHOP
@@ -315,19 +324,16 @@ class Game:
             try:
                 bankroll = decode_account(command.name, command.code)
             except AccountCodeError:
-                self._set_notice("invalid account code")
-                return [AccountRejected("invalid account code")]
+                return [self._reject("invalid account code", AccountRejected)]
             if bankroll < _CHEAPEST_VEHICLE_PRICE:
                 # A forged code with a starvation bankroll would otherwise strand
                 # the player in SHOP unable to afford any vehicle. Legitimate win
                 # codes are always > $10,000, so only forged codes hit this.
-                self._set_notice("account too depleted")
-                return [AccountRejected("account too depleted")]
+                return [self._reject("account too depleted", AccountRejected)]
             self.player_name = command.name
             self.wallet.balance = bankroll
             self.starting_bankroll = bankroll
-            self.notice = None
-            self.notice_remaining = 0.0
+            self._clear_notice()
             self.scene = SceneId.SHOP
             return [AccountAccepted(command.name, bankroll), SceneChanged(SceneId.SHOP)]
         return []
@@ -337,56 +343,36 @@ class Game:
             case SelectVehicle(vehicle_id=vehicle_id):
                 vehicle = VEHICLES.get(vehicle_id)
                 if vehicle is None:
-                    reason = "unknown vehicle"
-                    self._set_notice(reason)
-                    events.append(PurchaseRejected(reason))
+                    events.append(self._reject("unknown vehicle", PurchaseRejected))
                 elif self.loadout is not None:
-                    reason = "vehicle already chosen"
-                    self._set_notice(reason)
-                    events.append(PurchaseRejected(reason))
+                    events.append(self._reject("vehicle already chosen", PurchaseRejected))
                 elif not self.wallet.can_afford(vehicle.price):
-                    reason = "cannot afford"
-                    self._set_notice(reason)
-                    events.append(PurchaseRejected(reason))
+                    events.append(self._reject("cannot afford", PurchaseRejected))
                 else:
                     self.wallet.spend(vehicle.price)
                     self.loadout = Loadout(vehicle=vehicle)
-                    self.notice = None
-                    self.notice_remaining = 0.0
+                    self._clear_notice()
                     events.append(VehicleSelected(vehicle_id))
             case BuyItem(item_id=item_id):
                 item = ITEMS.get(item_id)
                 if item is None:
-                    reason = "unknown item"
-                    self._set_notice(reason)
-                    events.append(PurchaseRejected(reason))
+                    events.append(self._reject("unknown item", PurchaseRejected))
                 elif self.loadout is None:
-                    reason = "choose a vehicle first"
-                    self._set_notice(reason)
-                    events.append(PurchaseRejected(reason))
+                    events.append(self._reject("choose a vehicle first", PurchaseRejected))
                 elif not self.wallet.can_afford(item.price):
-                    reason = "cannot afford"
-                    self._set_notice(reason)
-                    events.append(PurchaseRejected(reason))
+                    events.append(self._reject("cannot afford", PurchaseRejected))
                 elif not self.loadout.can_add(item_id):
-                    reason = "no room in vehicle"
-                    self._set_notice(reason)
-                    events.append(PurchaseRejected(reason))
+                    events.append(self._reject("no room in vehicle", PurchaseRejected))
                 else:
                     self.wallet.spend(item.price)
                     self.loadout.add(item_id)
-                    self.notice = None
-                    self.notice_remaining = 0.0
+                    self._clear_notice()
                     events.append(ItemBought(item_id))
             case FinishShopping():
                 too_broke = not self.wallet.can_afford(ITEMS["snare"].price)
                 if self.loadout is None:
                     pass  # no vehicle yet: silently stay in the shop (existing contract)
-                elif (
-                    self.loadout.count("snare") == 0
-                    and (too_broke or not self.loadout.can_add("snare"))
-                    and not self.shop_fold_warned
-                ):
+                elif self._cannot_field_snare() and not self.shop_fold_warned:
                     # Leaving snare-less with no way to restock one at the Depot
                     # (too broke, or no free slot for one) trips the bankruptcy
                     # fold on the very first MAP tick. Warn once; a second press
@@ -397,8 +383,7 @@ class Game:
                     reason = (
                         f"no snare and {shape} — the franchise will fold (F again to leave anyway)"
                     )
-                    self._set_notice(reason)
-                    events.append(CommandRejected(reason))
+                    events.append(self._reject(reason, CommandRejected))
                 else:
                     self._change_scene(SceneId.MAP, events)
 
@@ -428,21 +413,16 @@ class Game:
     def _depot_restock(self, item_id: str) -> list[Event]:
         """Mid-game snare restock: only "snare", and only at the Depot."""
         if item_id != "snare" or self.position != DEPOT_POS:
-            self._set_notice("snares only, at the Depot")
-            return [PurchaseRejected("snares only, at the Depot")]
+            return [self._reject("snares only, at the Depot", PurchaseRejected)]
         if self.loadout is None:  # defensive: MAP is unreachable without a vehicle
-            self._set_notice("choose a vehicle first")
-            return [PurchaseRejected("choose a vehicle first")]
+            return [self._reject("choose a vehicle first", PurchaseRejected)]
         if not self.wallet.can_afford(ITEMS["snare"].price):
-            self._set_notice("cannot afford")
-            return [PurchaseRejected("cannot afford")]
+            return [self._reject("cannot afford", PurchaseRejected)]
         if not self.loadout.can_add("snare"):
-            self._set_notice("no room in vehicle")
-            return [PurchaseRejected("no room in vehicle")]
+            return [self._reject("no room in vehicle", PurchaseRejected)]
         self.wallet.spend(ITEMS["snare"].price)
         self.loadout.add("snare")
-        self.notice = None
-        self.notice_remaining = 0.0
+        self._clear_notice()
         return [ItemBought("snare")]
 
     def _arrive_at(self, pos: GridPos) -> list[Event]:
@@ -462,19 +442,16 @@ class Game:
             self.slimed.clear()
             events.append(SnaresEmptied())
             events.append(CleanersRestored())
-            if self.scene is not SceneId.MAP:
-                self._change_scene(SceneId.MAP, events)
+            self._ensure_map(events)
         elif pos == TOWER_POS and self.finale_unlocked:
             self._arrive_at_tower(events)
         elif pos == TOWER_POS:
-            if self.scene is not SceneId.MAP:
-                self._change_scene(SceneId.MAP, events)
-            if self.convergence is not None:
-                reason = _CONVERGING_NOTICE
-            else:
-                reason = "the Tower is sealed — return when the city's residue peaks"
-            self._set_notice(reason)
-            events.append(CommandRejected(reason))
+            reason = (
+                _CONVERGING_NOTICE
+                if self.convergence is not None
+                else "the Tower is sealed — return when the city's residue peaks"
+            )
+            self._turn_away(reason, CommandRejected, events)
         elif (
             pos in self.city.haunted_positions()
             and self.free_snares() > 0
@@ -486,17 +463,14 @@ class Game:
             # Haunted, but the crew can't field a bust (no free snare, or
             # fewer than two able cleaners): turn away with an explanation
             # instead of silently dropping the player back on MAP.
-            if self.scene is not SceneId.MAP:
-                self._change_scene(SceneId.MAP, events)
-            if self.free_snares() == 0:
-                reason = "no free snare — buy or empty one at the Depot"
-            else:
-                reason = "cleaners are slimed — restore them at the Depot"
-            self._set_notice(reason)
-            events.append(CommandRejected(reason))
+            reason = (
+                "no free snare — buy or empty one at the Depot"
+                if self.free_snares() == 0
+                else "cleaners are slimed — restore them at the Depot"
+            )
+            self._turn_away(reason, CommandRejected, events)
         else:
-            if self.scene is not SceneId.MAP:
-                self._change_scene(SceneId.MAP, events)
+            self._ensure_map(events)
         return events
 
     def _arrive_at_tower(self, events: list[Event]) -> None:
@@ -507,11 +481,9 @@ class Game:
         else:
             # An under-crewed team is turned away, not ended: restoring
             # slimed cleaners at the Depot and returning is always possible.
-            if self.scene is not SceneId.MAP:
-                self._change_scene(SceneId.MAP, events)
-            reason = "not enough able cleaners — restore them at the Depot"
-            self._set_notice(reason)
-            events.append(CommandRejected(reason))
+            self._turn_away(
+                "not enough able cleaners — restore them at the Depot", CommandRejected, events
+            )
 
     def _tick_finale(self, dt_seconds: float) -> list[Event]:
         """FINALE scene ticking and resolution: the world is frozen."""
@@ -523,12 +495,7 @@ class Game:
         events.extend(self.finale.tick(dt_seconds))
         outcome = self.finale.outcome
         if outcome is FinaleOutcome.WON:
-            # A wallet pinned at the cap has trivially turned a profit: the
-            # clamp makes `balance > starting_bankroll` unsatisfiable when a
-            # restored account starts AT MAX_BANKROLL.
-            if self.wallet.balance > self.starting_bankroll or (
-                self.wallet.balance >= MAX_BANKROLL
-            ):
+            if self.wallet.profited_over(self.starting_bankroll):
                 code = encode_account(self.player_name, self.wallet.balance)
                 self.result = "won"
                 self.last_account_code = code
@@ -594,11 +561,26 @@ class Game:
     def able_cleaners(self) -> int:
         return CLEANER_COUNT - len(self.slimed)
 
+    def _cannot_field_snare(self) -> bool:
+        """True when the franchise owns no snares and cannot get one by any
+        means: none free, none full to empty, and unable to restock (too
+        broke, or no vehicle slot) — the condition the shop's doom warning
+        and the mid-game bankruptcy fold must both agree on.
+        """
+        assert self.loadout is not None
+        return (
+            self.free_snares() == 0
+            and self.snares_full == 0
+            and (
+                not self.wallet.can_afford(ITEMS["snare"].price)
+                or not self.loadout.can_add("snare")
+            )
+        )
+
     def _change_scene(self, s: SceneId, events: list[Event]) -> None:
         # Notices are scene-local (drawn only by TITLE/SHOP/MAP); a rejection
         # message must not outlive the scene it was raised on.
-        self.notice = None
-        self.notice_remaining = 0.0
+        self._clear_notice()
         self.scene = s
         events.append(SceneChanged(s))
 
@@ -620,8 +602,7 @@ class Game:
         self.drive = None
         self.bust = None
         self.finale = None
-        self.notice = None
-        self.notice_remaining = 0.0
+        self._clear_notice()
         self.psi = PsiModel()
         self.city = City.new()
         self.mascot = MascotModel()

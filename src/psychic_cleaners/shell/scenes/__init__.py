@@ -28,6 +28,20 @@ class Scene(Protocol):
     ) -> None: ...
 
 
+def _blit_bottom_aligned(
+    surface: pygame.Surface,
+    sprite: pygame.Surface,
+    x: float,
+    ground_y: float,
+    y_offset: float = 0.0,
+) -> None:
+    """Blit `sprite` centered on x, bottom-aligned to ground_y, raised by y_offset."""
+    surface.blit(
+        sprite,
+        (int(x - sprite.get_width() / 2), int(ground_y - sprite.get_height() - y_offset)),
+    )
+
+
 def _draw_mascot_banner(surface: pygame.Surface, game: Game, text: TextRenderer) -> None:
     """Flashing mascot-alert banner; draws nothing unless the mascot is in ALERT."""
     if game.mascot.state is not MascotState.ALERT:

@@ -16,6 +16,7 @@ from psychic_cleaners.core.constants import (
     WISP_SPAWN_PER_REAL_MINUTE,
 )
 from psychic_cleaners.core.events import Event, GridPos, HauntStarted, WispReachedTower
+from psychic_cleaners.core.geometry import move_toward
 from psychic_cleaners.core.rng import Rng
 
 
@@ -92,13 +93,9 @@ class City:
         tower_x, tower_y = float(TOWER_POS[0]), float(TOWER_POS[1])
         remaining: list[Wisp] = []
         for wisp in self.wisps:
-            dx = tower_x - wisp.x
-            dy = tower_y - wisp.y
-            length = math.hypot(dx, dy)
-            if length > 0.0:
-                step = min(WISP_MAP_SPEED * dt_seconds, length)
-                wisp.x += dx / length * step
-                wisp.y += dy / length * step
+            wisp.x, wisp.y = move_toward(
+                wisp.x, wisp.y, tower_x, tower_y, WISP_MAP_SPEED * dt_seconds
+            )
             if math.hypot(tower_x - wisp.x, tower_y - wisp.y) <= 0.5:
                 events.append(WispReachedTower())
             else:

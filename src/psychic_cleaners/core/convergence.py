@@ -15,6 +15,7 @@ from psychic_cleaners.core.constants import (
     GRID_WIDTH,
     TOWER_POS,
 )
+from psychic_cleaners.core.geometry import move_toward
 
 # Same arrival radius the wisps use for reaching the tower (city.py).
 _ARRIVE_RADIUS = 0.5
@@ -29,14 +30,14 @@ class Walker:
     y: float
 
     def tick(self, dt_seconds: float) -> None:
-        dx = TOWER_POS[0] - self.x
-        dy = TOWER_POS[1] - self.y
-        length = math.hypot(dx, dy)
-        if length <= _ARRIVE_RADIUS:
-            return
-        step = min(CONVERGENCE_WALK_SPEED * dt_seconds, length - _ARRIVE_RADIUS)
-        self.x += dx / length * step
-        self.y += dy / length * step
+        self.x, self.y = move_toward(
+            self.x,
+            self.y,
+            TOWER_POS[0],
+            TOWER_POS[1],
+            CONVERGENCE_WALK_SPEED * dt_seconds,
+            stop_radius=_ARRIVE_RADIUS,
+        )
 
     @property
     def arrived(self) -> bool:
