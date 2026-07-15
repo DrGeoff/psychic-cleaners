@@ -119,6 +119,7 @@ class Game:
     position: GridPos = DEPOT_POS
     destination: GridPos | None = None
     finale_unlocked: bool = False
+    shop_fold_warned: bool = False  # FinishShopping doom warning shown once
 
     def tick(self, commands: Sequence[Command], dt_seconds: float) -> list[Event]:
         events: list[Event] = []
@@ -338,7 +339,24 @@ class Game:
                     self.notice_remaining = 0.0
                     events.append(ItemBought(item_id))
             case FinishShopping():
-                if self.loadout is not None:
+                if self.loadout is None:
+                    pass  # no vehicle yet: silently stay in the shop (existing contract)
+                elif (
+                    self.loadout.count("snare") == 0
+                    and not self.wallet.can_afford(ITEMS["snare"].price)
+                    and not self.shop_fold_warned
+                ):
+                    # Leaving snare-less AND too broke to restock one at the Depot
+                    # trips the bankruptcy fold on the very first MAP tick. Warn
+                    # once; a second press lets the doomed franchise leave and
+                    # fold with its own clear reason instead of soft-locking SHOP.
+                    self.shop_fold_warned = True
+                    reason = (
+                        "no snare and no funds — the franchise will fold (F again to leave anyway)"
+                    )
+                    self._set_notice(reason)
+                    events.append(CommandRejected(reason))
+                else:
                     self._change_scene(SceneId.MAP, events)
 
     def _handle_map(self, command: Command) -> list[Event]:
@@ -561,6 +579,7 @@ class Game:
         self.position = DEPOT_POS
         self.destination = None
         self.finale_unlocked = False
+        self.shop_fold_warned = False
 
 
 def new_game(seed: int) -> Game:

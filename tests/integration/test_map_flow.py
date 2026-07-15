@@ -5,7 +5,7 @@ from psychic_cleaners.core.city import Wisp
 from psychic_cleaners.core.constants import (
     CLEANER_COUNT,
     DEPOT_POS,
-    PSI_GROWTH_PER_MINUTE,
+    PSI_GROWTH_PER_REAL_MINUTE,
     PSI_MAX,
     WISP_TOWER_PSI_JUMP,
 )
@@ -104,7 +104,7 @@ def test_psi_grows_on_map() -> None:
     # no such wisp so the exact +250 base rate is observable in isolation.
     game = _map_game(13)
     game.tick([], 60.0)  # one rate-clock minute; no haunts were active before it
-    assert game.psi.value == int(PSI_GROWTH_PER_MINUTE)
+    assert game.psi.value == int(PSI_GROWTH_PER_REAL_MINUTE)
 
 
 def test_wisp_reaching_tower_spikes_psi() -> None:

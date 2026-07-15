@@ -8,12 +8,12 @@ from psychic_cleaners.core.constants import (
     DEPOT_POS,
     GRID_HEIGHT,
     GRID_WIDTH,
-    HAUNT_CHANCE_PER_MINUTE,
+    HAUNT_CHANCE_PER_REAL_MINUTE,
     MAX_ACTIVE_HAUNTS,
     PSI_MAX,
     TOWER_POS,
     WISP_MAP_SPEED,
-    WISP_SPAWN_PER_MINUTE,
+    WISP_SPAWN_PER_REAL_MINUTE,
 )
 from psychic_cleaners.core.events import Event, GridPos, HauntStarted, WispReachedTower
 from psychic_cleaners.core.rng import Rng
@@ -70,7 +70,7 @@ class City:
     def _spawn_haunts(self, dt_seconds: float, psi_value: int, rng: Rng) -> list[Event]:
         if self.active_haunts() >= MAX_ACTIVE_HAUNTS:
             return []
-        chance = HAUNT_CHANCE_PER_MINUTE * (1.0 + psi_value / PSI_MAX)
+        chance = HAUNT_CHANCE_PER_REAL_MINUTE * (1.0 + psi_value / PSI_MAX)
         if rng.random() >= chance * dt_seconds / 60.0:
             return []
         candidates = [pos for pos, building in self.buildings.items() if not building.haunted]
@@ -81,7 +81,7 @@ class City:
         return [HauntStarted(target)]
 
     def _spawn_wisps(self, dt_seconds: float, rng: Rng) -> None:
-        if rng.random() >= WISP_SPAWN_PER_MINUTE * dt_seconds / 60.0:
+        if rng.random() >= WISP_SPAWN_PER_REAL_MINUTE * dt_seconds / 60.0:
             return
         # Spec 4.3: wisps spawn at random buildings and drift toward the Tower.
         cell = rng.choice(list(self.buildings))

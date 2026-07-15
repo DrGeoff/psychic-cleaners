@@ -11,9 +11,11 @@ BUST_FEE_PER_1000_PSI: Final[int] = 100
 MAX_BANKROLL: Final[int] = 9_999_999
 
 # psi
+# PER_REAL_MINUTE rates accrue per real-world minute, regardless of
+# GAME_MINUTES_PER_REAL_SECOND (the models divide dt_seconds by 60).
 PSI_MAX: Final[int] = 9_999
-PSI_GROWTH_PER_MINUTE: Final[float] = 250.0
-PSI_HAUNT_GROWTH_PER_MINUTE: Final[float] = 100.0  # per active haunting
+PSI_GROWTH_PER_REAL_MINUTE: Final[float] = 250.0
+PSI_HAUNT_GROWTH_PER_REAL_MINUTE: Final[float] = 100.0  # per active haunting
 WISP_TOWER_PSI_JUMP: Final[int] = 100
 STOMP_PSI_SPIKE: Final[int] = 500
 
@@ -34,15 +36,16 @@ GRID_HEIGHT: Final[int] = 6
 TOWER_POS: Final[tuple[int, int]] = (5, 3)
 DEPOT_POS: Final[tuple[int, int]] = (0, 5)
 BLOCK_LENGTH: Final[float] = 400.0  # travel units per manhattan step
-HAUNT_CHANCE_PER_MINUTE: Final[float] = 0.8  # scaled by (1 + psi/PSI_MAX)
+HAUNT_CHANCE_PER_REAL_MINUTE: Final[float] = 0.8  # scaled by (1 + psi/PSI_MAX)
 MAX_ACTIVE_HAUNTS: Final[int] = 4
-WISP_SPAWN_PER_MINUTE: Final[float] = 0.6
+WISP_SPAWN_PER_REAL_MINUTE: Final[float] = 0.6
 WISP_MAP_SPEED: Final[float] = 0.05  # grid cells per real second
 
 # drive scene
 DRIVE_LANES: Final[int] = 3
 CAR_X: Final[float] = 80.0
-ROAD_WISP_SPAWN_PER_SECOND: Final[float] = 0.5
+# ~3-4 catches per long drive: keeps road grinding below a single bust fee
+ROAD_WISP_SPAWN_PER_SECOND: Final[float] = 0.1
 ROAD_WISP_SPEED: Final[float] = 120.0  # toward the car, units/sec
 CATCH_RANGE: Final[float] = 24.0
 FAINT_WISP_CHANCE: Final[float] = 0.3
@@ -68,7 +71,7 @@ BEAM_AIM_SPREAD: Final[float] = 8.0  # keeps the two beam tips from meeting at o
 BUST_TIMEOUT_SECONDS: Final[float] = 45.0
 
 # mascot (Sir Squish)
-MASCOT_CHANCE_PER_MINUTE_PER_1000_PSI: Final[float] = 0.10
+MASCOT_CHANCE_PER_REAL_MINUTE_PER_1000_PSI: Final[float] = 0.10
 MASCOT_ALERT_WINDOW: Final[float] = 10.0  # real seconds to deploy bait
 
 # finale
