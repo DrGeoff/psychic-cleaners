@@ -81,7 +81,9 @@ class CityMapScene:
         # hide a haunting there; centered horizontally, flush with the cell
         # top since the sprite height already matches the cell height.
         tower_rect = _cell_rect(TOWER_POS)
-        surface.blit(gfx.get("tower.map"), (tower_rect.left + 10, tower_rect.top))
+        tower_sprite = gfx.get("tower.map")
+        tower_x = tower_rect.left + (tower_rect.width - tower_sprite.get_width()) // 2
+        surface.blit(tower_sprite, (tower_x, tower_rect.top))
         surface.blit(gfx.get("depot"), _cell_rect(DEPOT_POS).topleft)
         if detector:
             # wisps are invisible without the residue detector

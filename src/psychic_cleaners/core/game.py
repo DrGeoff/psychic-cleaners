@@ -180,6 +180,9 @@ class Game:
         if self.notice is not None:
             # Notices set on TITLE/SHOP don't reach here (those scenes don't
             # world-tick); only MAP/DRIVE/BUST notices decay and expire.
+            # Accepted quirk: a notice armed mid-tick is also decremented by
+            # that same tick's dt (~16ms of a 6s lifetime) — intentional,
+            # not worth tracking the arming tick separately.
             self.notice_remaining -= dt_seconds
             if self.notice_remaining <= 0:
                 self.notice = None

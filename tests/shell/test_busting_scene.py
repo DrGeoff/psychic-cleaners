@@ -102,7 +102,8 @@ def test_space_springs_snare(bust_game: Game) -> None:
 def test_space_emits_snare_command_in_non_active_phases(
     monkeypatch: pytest.MonkeyPatch, bust_game: Game
 ) -> None:
-    """Space KEYDOWN during POSITION_LEFT yields SpringSnare for core to evaluate."""
+    """Scene emits SpringSnare in non-ACTIVE phases; the core's rejection is
+    covered by tests/integration/test_bust_flow.py."""
     assert bust_game.bust is not None
     bust_game.bust.phase = BustPhase.POSITION_LEFT
     space = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE)
