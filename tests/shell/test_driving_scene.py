@@ -11,7 +11,7 @@ from psychic_cleaners.core.events import SceneId, Steer
 from psychic_cleaners.core.game import Game, new_game
 from psychic_cleaners.core.loadout import Loadout
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes.driving import DrivingScene
+from psychic_cleaners.shell.scenes.driving import _GRASS, DrivingScene
 from psychic_cleaners.shell.text import TextRenderer
 
 
@@ -101,6 +101,19 @@ def test_draw_without_an_active_drive_does_not_crash() -> None:
     game.drive = None
     surface = pygame.Surface((640, 400))
     DrivingScene().draw(surface, game, SpriteFactory(), TextRenderer())
+
+
+def test_control_hint_drawn_during_an_active_drive() -> None:
+    # First-time players get no other cue that Up/Down changes lanes or
+    # that B deploys bait mid-drive; the hint has to live on screen.
+    surface = pygame.Surface((640, 400))
+    DrivingScene().draw(surface, _driving_game(), SpriteFactory(), TextRenderer())
+    row = pygame.Rect(16, 380, 300, 20)
+    assert any(
+        surface.get_at((x, y))[:3] != _GRASS
+        for x in range(row.left, row.right)
+        for y in range(row.top, min(row.bottom, surface.get_height()))
+    )
 
 
 def test_scene_registry_uses_driving_scene() -> None:

@@ -23,6 +23,7 @@ _HUD_Y: int = 356
 _RED: tuple[int, int, int] = (240, 120, 120)
 _CAR_MARKER: tuple[int, int, int] = (250, 250, 250)
 _CAR_MARKER_OUTLINE: tuple[int, int, int] = (30, 30, 40)
+_CONTROL_HINT: str = "Arrows: move cursor - Enter: travel - B: bait"
 
 
 def _cell_rect(pos: GridPos) -> pygame.Rect:
@@ -144,3 +145,7 @@ class CityMapScene:
             text.draw(surface, hint, (430, _HUD_Y + 18), size=16)
         if game.notice is not None:
             text.draw(surface, game.notice, (10, _HUD_Y + 32), size=16, color=_RED)
+        else:
+            # A first-time player never trips a notice, so this row would
+            # otherwise stay blank for the whole game.
+            text.draw(surface, _CONTROL_HINT, (10, _HUD_Y + 32), size=16)

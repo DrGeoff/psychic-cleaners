@@ -10,8 +10,10 @@ from psychic_cleaners.core.events import BuyItem, SceneId, SetDestination
 from psychic_cleaners.core.game import new_game
 from psychic_cleaners.core.loadout import Loadout
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes.city_map import _CAR_MARKER, CityMapScene, _cell_rect
+from psychic_cleaners.shell.scenes.city_map import _CAR_MARKER, _HUD_Y, CityMapScene, _cell_rect
 from psychic_cleaners.shell.text import TextRenderer
+
+_HUD_BACKGROUND: tuple[int, int, int] = (12, 12, 18)
 
 
 def _key(key: int) -> pygame.event.Event:
@@ -165,3 +167,41 @@ def test_draw_smoke_depot_hint_and_notice() -> None:
     scene.draw(surface, game, SpriteFactory(), TextRenderer())  # exercises the hint line
     game.notice = "snares only, at the Depot"
     scene.draw(surface, game, SpriteFactory(), TextRenderer())  # exercises the notice line
+
+
+def _row_has_content(surface: pygame.Surface, row: pygame.Rect) -> bool:
+    return any(
+        surface.get_at((x, y))[:3] != _HUD_BACKGROUND
+        for x in range(row.left, row.right)
+        for y in range(row.top, min(row.bottom, surface.get_height()))
+    )
+
+
+def test_control_hint_fills_the_third_hud_row_by_default() -> None:
+    # A first-time player never presses a key wrong, so game.notice never
+    # fires and the third HUD row would otherwise stay blank forever.
+    pygame.init()
+    pygame.display.set_mode((640, 400))
+    scene = CityMapScene()
+    game = new_game(9)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])
+    game.scene = SceneId.MAP
+    assert game.notice is None
+    surface = pygame.Surface((640, 400))
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())
+    row = pygame.Rect(10, _HUD_Y + 32, 300, 400 - (_HUD_Y + 32))
+    assert _row_has_content(surface, row)
+
+
+def test_notice_still_takes_the_row_over_the_control_hint() -> None:
+    pygame.init()
+    pygame.display.set_mode((640, 400))
+    scene = CityMapScene()
+    game = new_game(10)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])
+    game.scene = SceneId.MAP
+    game.notice = "snares only, at the Depot"
+    surface = pygame.Surface((640, 400))
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())
+    row = pygame.Rect(10, _HUD_Y + 32, 300, 400 - (_HUD_Y + 32))
+    assert _row_has_content(surface, row)  # unchanged: the notice, not the hint, fills the row

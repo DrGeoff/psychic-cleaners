@@ -24,6 +24,7 @@ _BAR_RECT: Final[pygame.Rect] = pygame.Rect(120, 24, 400, 12)
 _BAR_BACK: Final[tuple[int, int, int]] = (40, 40, 48)
 _BAR_FILL: Final[tuple[int, int, int]] = (120, 220, 140)
 _BAR_EDGE: Final[tuple[int, int, int]] = (205, 205, 210)
+_CONTROL_HINT: Final[str] = "Up/Down: change lane - B: bait"
 
 
 def _lane_center_y(lane: int) -> int:
@@ -82,4 +83,5 @@ class DrivingScene:
         pygame.draw.rect(surface, _BAR_FILL, fill)
         pygame.draw.rect(surface, _BAR_EDGE, _BAR_RECT, 1)
         text.draw(surface, f"${game.wallet.balance}", (16, 16), size=16)
+        text.draw(surface, _CONTROL_HINT, (16, 380), size=16)
         _draw_mascot_banner(surface, game, text)
