@@ -1,7 +1,5 @@
 """Interactive store: pick one vehicle, fill it with gear, F to finish."""
 
-from __future__ import annotations
-
 from typing import Final
 
 import pygame
@@ -74,7 +72,8 @@ class ShopScene:
             else:
                 owned = game.loadout.count(row.id) if game.loadout is not None else 0
                 suffix = f"x{owned}" if owned else ""
-            text.draw(surface, marker, (_MARKER_X, y), size=16, color=color)
+            if marker:
+                text.draw(surface, marker, (_MARKER_X, y), size=16, color=color)
             text.draw(surface, row.name, (_NAME_X, y), size=16, color=color)
             text.draw(surface, f"${row.price}", (_PRICE_X, y), size=16, color=color)
             if suffix:

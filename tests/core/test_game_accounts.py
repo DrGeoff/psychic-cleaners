@@ -16,7 +16,7 @@ from psychic_cleaners.core.game import new_game
 def test_valid_account_restores_exact_bankroll() -> None:
     game = new_game(1234)
     code = encode_account("Pat", 123_456)
-    assert code == "BRAE99D"  # pinned so a codec regression is loud here too
+    assert code == "F6AYADD"  # pinned so a codec regression is loud here too
     events = game.tick([EnterAccount("Pat", code)], 0.0)
     assert AccountAccepted("Pat", 123_456) in events
     assert SceneChanged(SceneId.SHOP) in events

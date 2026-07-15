@@ -48,6 +48,19 @@ def test_notice_clears_once_its_lifetime_elapses() -> None:
     assert game.notice_remaining == 0.0
 
 
+def test_notice_clears_on_exact_zero_boundary() -> None:
+    # The arming tick's own dt already decays notice_remaining (here by 0.0,
+    # so it stays at NOTICE_LIFETIME_SECONDS); compute the follow-up dt from
+    # the post-arm value itself so the decay tick lands on exactly 0.0.
+    game = _map_game(25)
+    game.position = (3, 3)
+    game.tick([BuyItem("snare")], 0.0)
+    remaining = game.notice_remaining
+    game.tick([], remaining)
+    assert game.notice is None
+    assert game.notice_remaining == 0.0
+
+
 def test_scene_change_still_clears_notice_immediately() -> None:
     # Existing behavior (pre-dating this task): a scene change must clear a
     # live notice right away, not wait for it to decay.

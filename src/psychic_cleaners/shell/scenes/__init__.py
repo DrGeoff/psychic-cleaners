@@ -26,7 +26,9 @@ def _draw_mascot_banner(surface: pygame.Surface, game: Game, text: TextRenderer)
     """Flashing mascot-alert banner; draws nothing unless the mascot is in ALERT."""
     if game.mascot.state is not MascotState.ALERT:
         return
-    elapsed = MASCOT_ALERT_WINDOW - game.mascot.alert_remaining
+    # clamp: a hypothetical alert_remaining > MASCOT_ALERT_WINDOW must never
+    # drive elapsed negative and desync the flash parity
+    elapsed = max(0.0, MASCOT_ALERT_WINDOW - game.mascot.alert_remaining)
     if int(elapsed * 2) % 2 != 0:
         return  # off phase of the flash
     charges = game.loadout.bait_charges if game.loadout is not None else 0
