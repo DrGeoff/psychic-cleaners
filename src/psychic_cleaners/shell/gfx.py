@@ -171,6 +171,29 @@ def _build_mascot() -> pygame.Surface:
     return surf
 
 
+def _walker(robe: Color, trim: Color) -> pygame.Surface:
+    surf = _surface(20, 28)
+    pygame.draw.polygon(surf, robe, [(10, 4), (17, 26), (3, 26)])  # hooded robe
+    pygame.draw.circle(surf, trim, (10, 5), 4)  # hood rim
+    pygame.draw.circle(surf, (20, 18, 30), (10, 5), 2)  # shadowed face
+    pygame.draw.line(surf, trim, (6, 26), (14, 26), 2)  # hem
+    return surf
+
+
+def _build_warden() -> pygame.Surface:
+    surf = _walker((120, 60, 160), (200, 140, 240))
+    pygame.draw.circle(surf, (255, 150, 90), (8, 5), 1)  # ember eyes
+    pygame.draw.circle(surf, (255, 150, 90), (12, 5), 1)
+    return surf
+
+
+def _build_locksmith() -> pygame.Surface:
+    surf = _walker((60, 90, 140), (140, 190, 240))
+    pygame.draw.line(surf, (250, 210, 60), (16, 10), (16, 18), 2)  # raised key
+    pygame.draw.circle(surf, (250, 210, 60), (16, 9), 2)
+    return surf
+
+
 def _build_snare() -> pygame.Surface:
     surf = _surface(32, 16)
     pygame.draw.rect(surf, (60, 60, 70), pygame.Rect(2, 6, 28, 9), border_radius=2)
@@ -226,6 +249,8 @@ _BUILDERS: Final[dict[str, Callable[[], pygame.Surface]]] = {
     "tower": _build_tower,
     "tower.map": _build_tower_map,
     "depot": _build_depot,
+    "warden": _build_warden,
+    "locksmith": _build_locksmith,
     "mascot": _build_mascot,
     "snare": _build_snare,
     "logo": _build_logo,

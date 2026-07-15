@@ -5,6 +5,7 @@ import pygame
 from psychic_cleaners.core.catalog import VEHICLES
 from psychic_cleaners.core.city import Wisp
 from psychic_cleaners.core.constants import DEPOT_POS
+from psychic_cleaners.core.convergence import Convergence
 from psychic_cleaners.core.events import BuyItem, SceneId, SetDestination
 from psychic_cleaners.core.game import new_game
 from psychic_cleaners.core.loadout import Loadout
@@ -61,6 +62,23 @@ def test_draw_smoke_without_detector_hides_wisps() -> None:
     surface = pygame.Surface((640, 400))
     scene.draw(surface, game, SpriteFactory(), TextRenderer())
     assert surface.get_at((320, 180)) == (24, 26, 34, 255)  # type: ignore[comparison-overlap]
+
+
+def test_draw_shows_walkers_while_converging() -> None:
+    # The Warden and the Locksmith are visible without any detector: their
+    # walk is the endgame telegraph, not a gadget-gated detail.
+    pygame.init()
+    pygame.display.set_mode((640, 400))
+    scene = CityMapScene()
+    game = new_game(6)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])  # no detector
+    game.scene = SceneId.MAP
+    game.convergence = Convergence.start()
+    game.convergence.warden.x = 4.5  # centre pixel (320, 180): grid gutter
+    game.convergence.warden.y = 2.5
+    surface = pygame.Surface((640, 400))
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())
+    assert surface.get_at((320, 180)) != (24, 26, 34, 255)  # type: ignore[comparison-overlap]
 
 
 def test_draw_smoke_with_detector_shows_wisps() -> None:

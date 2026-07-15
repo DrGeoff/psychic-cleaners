@@ -91,6 +91,7 @@ def _example_events() -> list[events.Event]:
         events.BaitDeployed(),
         events.StompTriggered(),
         events.BuildingStomped(pos=(6, 3), fine=4_000),
+        events.ConvergenceStarted(),
         events.FinaleUnlocked(),
         events.RunnerEntered(total_inside=1),
         events.RunnerSquashed(),
@@ -102,7 +103,7 @@ def _example_events() -> list[events.Event]:
 def test_every_event_class_constructs() -> None:
     constructed = {type(event) for event in _example_events()}
     assert constructed == _declared_subclasses(events.Event)
-    assert len(constructed) == 28
+    assert len(constructed) == 29
 
 
 def test_event_equality_by_value() -> None:

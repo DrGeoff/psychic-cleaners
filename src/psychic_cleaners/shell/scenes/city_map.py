@@ -101,6 +101,17 @@ class CityMapScene:
                 px = int(_ORIGIN_X + wisp.x * _CELL + _CELL / 2) - 8
                 py = int(_ORIGIN_Y + wisp.y * _CELL + _CELL / 2) - 8
                 surface.blit(wisp_sprite, (px, py))
+        if game.convergence is not None:
+            # The Warden and the Locksmith are visible without any detector:
+            # their walk toward the Tower is the endgame telegraph.
+            for name, walker in (
+                ("warden", game.convergence.warden),
+                ("locksmith", game.convergence.locksmith),
+            ):
+                sprite = gfx.get(name)
+                px = int(_ORIGIN_X + walker.x * _CELL + _CELL / 2) - sprite.get_width() // 2
+                py = int(_ORIGIN_Y + walker.y * _CELL + _CELL / 2) - sprite.get_height() // 2
+                surface.blit(sprite, (px, py))
         # Player marker: drawn AFTER every cell sprite (buildings, tower,
         # depot, wisps) so it stays visible even when parked on the Depot
         # tile, with a dark outline for contrast against any cell colour.
