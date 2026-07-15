@@ -41,6 +41,11 @@ from psychic_cleaners.shell.text import TextRenderer
 LOGICAL_SIZE: Final[tuple[int, int]] = (640, 400)
 WINDOW_SCALE: Final[int] = 2
 FPS: Final[int] = 60
+# Wall-clock hitches (window drag, sleep-resume, GC stalls) must not become one
+# giant physics step: at dt >= ~0.15 a finale runner tunnels straight through
+# the giant and the bust ghost can jump the slime band. Capping the step turns
+# a hitch into brief slow-motion instead.
+MAX_FRAME_DT: Final[float] = 0.1
 
 EVENT_SOUNDS: Final[dict[type[Event], str]] = {
     GhostTrapped: "trap",
@@ -138,7 +143,7 @@ class App:
 
     def run(self) -> None:
         while self.running:
-            dt = self.clock.tick(FPS) / 1000.0
+            dt = min(self.clock.tick(FPS) / 1000.0, MAX_FRAME_DT)
             self.step(dt)
 
 
