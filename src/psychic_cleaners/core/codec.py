@@ -2,7 +2,7 @@
 
 Encodes (player name, bankroll) into a 7-character code over a 30-letter
 alphabet with no easily-confused glyphs. The bankroll is xor-mixed with a
-CRC-derived key of the normalized name, and an 8-bit CRC checksum of
+CRC-derived key of the normalized name, and a 10-bit CRC checksum of
 "name:bankroll" is appended, so a code only decodes for the name it was
 issued to and single-character typos are (almost always) rejected.
 """
@@ -20,8 +20,10 @@ class AccountCodeError(ValueError):
 ALPHABET: Final[str] = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
 
 _CODE_LENGTH: Final[int] = 7
-_BASE: Final[int] = len(ALPHABET)  # 30; 30**7 > 2**32, so 7 digits hold any raw value
+_BASE: Final[int] = len(ALPHABET)  # 30; 30**7 > 2**34, so 7 digits hold any raw value
 _CHAR_VALUES: Final[dict[str, int]] = {ch: i for i, ch in enumerate(ALPHABET)}
+_CHECK_BITS: Final[int] = 10
+_CHECK_MASK: Final[int] = (1 << _CHECK_BITS) - 1
 
 
 def _norm(name: str) -> str:
@@ -36,7 +38,7 @@ def _key(norm_name: str) -> int:
 
 
 def _checksum(norm_name: str, bankroll: int) -> int:
-    return zlib.crc32(f"{norm_name}:{bankroll}".encode()) & 0xFF
+    return zlib.crc32(f"{norm_name}:{bankroll}".encode()) & _CHECK_MASK
 
 
 def encode_account(name: str, bankroll: int) -> str:
@@ -45,7 +47,7 @@ def encode_account(name: str, bankroll: int) -> str:
     if not 0 <= bankroll <= MAX_BANKROLL:
         raise AccountCodeError(f"bankroll out of range: {bankroll}")
     mixed = bankroll ^ _key(norm_name)
-    raw = (mixed << 8) | _checksum(norm_name, bankroll)
+    raw = (mixed << _CHECK_BITS) | _checksum(norm_name, bankroll)
     digits: list[str] = []
     for _ in range(_CODE_LENGTH):
         digits.append(ALPHABET[raw % _BASE])
@@ -71,8 +73,8 @@ def decode_account(name: str, code: str) -> int:
         if value is None:
             raise AccountCodeError(f"invalid character in account code: {ch!r}")
         raw = raw * _BASE + value
-    mixed = raw >> 8
-    check = raw & 0xFF
+    mixed = raw >> _CHECK_BITS
+    check = raw & _CHECK_MASK
     bankroll = mixed ^ _key(norm_name)
     if not 0 <= bankroll <= MAX_BANKROLL:
         raise AccountCodeError("account code does not match this name")
