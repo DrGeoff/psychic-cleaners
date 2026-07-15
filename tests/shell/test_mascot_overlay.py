@@ -80,9 +80,34 @@ def test_banner_visible_only_in_alert_and_flash_on_phase() -> None:
 
     blank = banner_bytes()  # CALM: helper draws nothing
     game.mascot.state = MascotState.ALERT
-    game.mascot.alert_remaining = 10.0  # int(20.0) % 2 == 0 -> visible phase
+    game.mascot.alert_remaining = 10.0  # elapsed 0.0 -> int(0.0) % 2 == 0 -> visible phase
     visible = banner_bytes()
-    game.mascot.alert_remaining = 9.5  # int(19.0) % 2 == 1 -> hidden phase
+    game.mascot.alert_remaining = 9.5  # elapsed 0.5 -> int(1.0) % 2 == 1 -> hidden phase
     hidden = banner_bytes()
     assert visible != blank
     assert hidden == blank
+
+
+def test_banner_visible_at_alert_start_bug_case() -> None:
+    """The very start of an alert (remaining just under the window) must flash ON.
+
+    Before the fix, the flash phase was computed from alert_remaining directly
+    (counting DOWN from MASCOT_ALERT_WINDOW), so the first ~0.5s of an alert
+    landed in the "off" phase -- the banner was invisible exactly when the
+    player most needed to see it.
+    """
+    text = TextRenderer()
+    game = _world_game(SceneId.MAP)
+    game.mascot.state = MascotState.ALERT
+    game.mascot.alert_remaining = 9.9  # elapsed 0.1 -> must be visible
+
+    surface = pygame.Surface((640, 400))
+    surface.fill((0, 0, 0))
+    _draw_mascot_banner(surface, game, text)
+    drawn = pygame.image.tobytes(surface, "RGB")
+
+    blank_surface = pygame.Surface((640, 400))
+    blank_surface.fill((0, 0, 0))
+    blank = pygame.image.tobytes(blank_surface, "RGB")
+
+    assert drawn != blank
