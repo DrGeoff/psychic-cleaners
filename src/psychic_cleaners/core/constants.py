@@ -78,3 +78,6 @@ GIANT_AIR_FRACTION: Final[float] = 0.6
 RUNNER_START_X: Final[float] = 40.0
 RUNNER_SPEED: Final[float] = 260.0
 SQUASH_RANGE: Final[float] = 36.0
+
+# ui
+NOTICE_LIFETIME_SECONDS: Final[float] = 6.0
