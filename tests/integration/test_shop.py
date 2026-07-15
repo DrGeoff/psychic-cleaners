@@ -2,7 +2,9 @@
 
 from psychic_cleaners.core.events import (
     BuyItem,
+    CommandRejected,
     FinishShopping,
+    GameLost,
     ItemBought,
     NewGame,
     PurchaseRejected,
@@ -92,6 +94,56 @@ def test_finish_without_vehicle_stays_in_shop() -> None:
     events = game.tick([FinishShopping()], 0.0)
     assert game.scene == SceneId.SHOP
     assert SceneChanged(SceneId.MAP) not in events
+
+
+def _assert_scene(game: Game, expected: SceneId) -> None:
+    """Assert the current scene, re-reading through a widened ``SceneId``.
+
+    Mirrors test_full_game's helper: a plain literal assert narrows
+    ``game.scene`` across tick calls, and two differing literal checks in one
+    scope would trip mypy's ``comparison-overlap``.
+    """
+    assert game.scene is expected
+
+
+def test_finish_snareless_and_broke_warns_once_then_folds() -> None:
+    game = _shop_game()
+    game.tick([SelectVehicle("compact"), BuyItem("rig")], 0.0)  # 2000 + 8000 = 10000
+    assert game.wallet.balance == 0
+    reason = "no snare and no funds — the franchise will fold (F again to leave anyway)"
+    events = game.tick([FinishShopping()], 0.0)  # first press: warned, stays
+    _assert_scene(game, SceneId.SHOP)
+    assert SceneChanged(SceneId.MAP) not in events
+    assert CommandRejected(reason) in events
+    assert game.notice == reason
+    # Second press: leaves SHOP as warned; the same tick's world step then
+    # runs the bankruptcy check on MAP, so the fold lands immediately.
+    events = game.tick([FinishShopping()], 0.0)
+    assert SceneChanged(SceneId.MAP) in events
+    assert GameLost("no snares left — the franchise folds") in events
+    _assert_scene(game, SceneId.GAME_OVER)
+
+
+def test_shop_fold_warning_resets_on_new_game() -> None:
+    game = _shop_game()
+    game.tick([SelectVehicle("compact"), BuyItem("rig")], 0.0)  # doomed loadout
+    game.tick([FinishShopping()], 0.0)  # arms the one-shot warning
+    assert game.shop_fold_warned
+    game.scene = SceneId.TITLE  # reach TITLE directly, as the _reset() tests do
+    game.tick([NewGame("Sam")], 0.0)  # routes through _reset()
+    assert not game.shop_fold_warned
+    game.tick([SelectVehicle("compact"), BuyItem("rig")], 0.0)
+    events = game.tick([FinishShopping()], 0.0)  # fresh playthrough: warned again
+    assert game.scene == SceneId.SHOP
+    assert SceneChanged(SceneId.MAP) not in events
+
+
+def test_finish_snareless_but_solvent_reaches_map() -> None:
+    game = _shop_game()
+    game.tick([SelectVehicle("compact")], 0.0)  # 8000 left: can restock at the Depot
+    events = game.tick([FinishShopping()], 0.0)
+    assert SceneChanged(SceneId.MAP) in events
+    assert game.scene == SceneId.MAP
 
 
 def test_notice_set_on_rejection_and_cleared_on_success() -> None:

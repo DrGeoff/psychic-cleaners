@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 
 from psychic_cleaners.core.constants import (
-    PSI_GROWTH_PER_MINUTE,
-    PSI_HAUNT_GROWTH_PER_MINUTE,
+    PSI_GROWTH_PER_REAL_MINUTE,
+    PSI_HAUNT_GROWTH_PER_REAL_MINUTE,
     PSI_MAX,
 )
 
@@ -16,7 +16,7 @@ class PsiModel:
     psi: float = 0.0
 
     def advance(self, dt_seconds: float, active_haunts: int) -> None:
-        rate = PSI_GROWTH_PER_MINUTE + PSI_HAUNT_GROWTH_PER_MINUTE * active_haunts
+        rate = PSI_GROWTH_PER_REAL_MINUTE + PSI_HAUNT_GROWTH_PER_REAL_MINUTE * active_haunts
         self.psi += rate * dt_seconds / 60.0
 
     def spike(self, amount: float) -> None:

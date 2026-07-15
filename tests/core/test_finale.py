@@ -52,6 +52,17 @@ def test_start_run_ignored_when_nobody_left_outside() -> None:
     assert sim.runner_x is None
 
 
+def test_remaining_outside_excludes_active_runner() -> None:
+    sim = FinaleSim(able_cleaners=3)
+    assert sim.remaining_outside == 3
+    sim.start_run()
+    assert sim.remaining_outside == 2  # the runner is on the field, not outside
+    sim.runner_x = DOOR_X - 1.0  # one step from the door
+    sim.hop_time = 0.0  # airborne, and the giant is far away regardless
+    assert sim.tick(1 / 60) == [RunnerEntered(1)]
+    assert sim.remaining_outside == 2  # inside absorbs him: no double count
+
+
 def test_start_run_ignored_while_runner_active() -> None:
     sim = FinaleSim(able_cleaners=3)
     sim.start_run()
@@ -142,6 +153,28 @@ def test_two_able_both_squashed_is_lost() -> None:
     assert sim.squashed == 2
     assert sim.inside == 0
     assert sim.outcome is FinaleOutcome.LOST
+
+
+def test_unwinnable_state_is_lost_while_last_runner_is_mid_run() -> None:
+    # Two of three squashed: even if the last runner enters, inside tops out
+    # at 1 < FINALE_NEEDED_INSIDE — LOST must not wait for him to resolve.
+    sim = FinaleSim(able_cleaners=3, squashed=2)
+    assert FINALE_NEEDED_INSIDE > 1
+    sim.start_run()
+    assert sim.runner_x == RUNNER_START_X  # the gate let the last cleaner run
+    assert sim.outcome is FinaleOutcome.LOST
+
+
+def test_winnable_mid_run_state_is_not_lost() -> None:
+    # One squashed, one inside, third mid-run: he can still make it 2 inside.
+    sim = FinaleSim(able_cleaners=3, inside=1, squashed=1)
+    sim.start_run()
+    assert sim.runner_x == RUNNER_START_X
+    assert sim.outcome is None  # undecided until he resolves
+    sim.runner_x = DOOR_X - 1.0  # one step from the door
+    sim.hop_time = 0.0  # airborne, and the giant is far away regardless
+    assert sim.tick(1 / 60) == [RunnerEntered(2)]
+    assert sim.outcome is FinaleOutcome.WON
 
 
 def test_three_able_one_squashed_two_entered_is_won() -> None:

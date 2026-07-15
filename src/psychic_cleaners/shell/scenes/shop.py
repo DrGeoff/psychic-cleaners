@@ -28,6 +28,14 @@ class ShopScene:
     def __init__(self) -> None:
         self.cursor = 0
 
+    def reset(self) -> None:
+        """Return the cursor to the first row.
+
+        Called by the shell on every transition INTO TITLE, so a new game's
+        shop opens on row 0 rather than the previous game's last selection.
+        """
+        self.cursor = 0
+
     def commands(self, events: list[pygame.event.Event], game: Game) -> list[Command]:
         commands: list[Command] = []
         for event in events:

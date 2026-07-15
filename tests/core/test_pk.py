@@ -5,8 +5,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from psychic_cleaners.core.constants import (
-    PSI_GROWTH_PER_MINUTE,
-    PSI_HAUNT_GROWTH_PER_MINUTE,
+    PSI_GROWTH_PER_REAL_MINUTE,
+    PSI_HAUNT_GROWTH_PER_REAL_MINUTE,
     PSI_MAX,
 )
 from psychic_cleaners.core.pk import PsiModel
@@ -15,20 +15,20 @@ from psychic_cleaners.core.pk import PsiModel
 def test_advance_base_growth_per_minute() -> None:
     model = PsiModel()
     model.advance(60.0, active_haunts=0)
-    assert model.psi == pytest.approx(PSI_GROWTH_PER_MINUTE)
+    assert model.psi == pytest.approx(PSI_GROWTH_PER_REAL_MINUTE)
 
 
 def test_advance_scales_with_active_haunts() -> None:
     model = PsiModel()
     model.advance(60.0, active_haunts=2)
-    expected = PSI_GROWTH_PER_MINUTE + 2 * PSI_HAUNT_GROWTH_PER_MINUTE
+    expected = PSI_GROWTH_PER_REAL_MINUTE + 2 * PSI_HAUNT_GROWTH_PER_REAL_MINUTE
     assert model.psi == pytest.approx(expected)
 
 
 def test_advance_partial_minute() -> None:
     model = PsiModel()
     model.advance(6.0, active_haunts=0)  # a tenth of a minute
-    assert model.psi == pytest.approx(PSI_GROWTH_PER_MINUTE / 10.0)
+    assert model.psi == pytest.approx(PSI_GROWTH_PER_REAL_MINUTE / 10.0)
 
 
 def test_value_truncates_below_max() -> None:

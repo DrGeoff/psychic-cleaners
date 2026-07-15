@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from psychic_cleaners.core.constants import (
     MASCOT_ALERT_WINDOW,
-    MASCOT_CHANCE_PER_MINUTE_PER_1000_PSI,
+    MASCOT_CHANCE_PER_REAL_MINUTE_PER_1000_PSI,
 )
 from psychic_cleaners.core.events import Event, MascotAlert, StompTriggered
 from psychic_cleaners.core.rng import Rng
@@ -32,7 +32,7 @@ class MascotModel:
                 self.state = MascotState.CALM
                 events.append(StompTriggered())
             return events
-        rate_per_minute = MASCOT_CHANCE_PER_MINUTE_PER_1000_PSI * (psi_value / 1000)
+        rate_per_minute = MASCOT_CHANCE_PER_REAL_MINUTE_PER_1000_PSI * (psi_value / 1000)
         if rng.random() < rate_per_minute * (dt_seconds / 60.0):
             if has_sensor:
                 self.state = MascotState.ALERT

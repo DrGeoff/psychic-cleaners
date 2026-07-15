@@ -35,6 +35,15 @@ class CityMapScene:
     def __init__(self) -> None:
         self.cursor: GridPos = DEPOT_POS
 
+    def reset(self) -> None:
+        """Return the cursor to the Depot.
+
+        Called by the shell on every transition INTO TITLE, so a new game's
+        map opens with the cursor on the Depot rather than wherever the
+        previous game left it.
+        """
+        self.cursor = DEPOT_POS
+
     def commands(self, events: list[pygame.event.Event], game: Game) -> list[Command]:
         commands: list[Command] = []
         for event in events:
