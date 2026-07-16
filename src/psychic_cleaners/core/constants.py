@@ -73,6 +73,13 @@ CLEANER_SPEED: Final[float] = 180.0  # px/sec while positioning
 BUST_MIN_X: Final[float] = 40.0
 BUST_MAX_X: Final[float] = 600.0
 BEAM_AIM_SPREAD: Final[float] = 8.0  # keeps the two beam tips from meeting at one point
+# Beam-crossing backfire: BEAM_AIM_SPREAD alone can never let the beams
+# cross (proven — see docs/superpowers/specs/2026-07-16-beam-crossing-backfire-design.md).
+# Past BEAM_NARROW_START_Y the tilt gain ramps toward BEAM_MAX_GAIN, which
+# CAN produce a genuine cross for an off-center ghost at a narrow-enough gap;
+# gap >= ~300px is immune regardless of gain.
+BEAM_NARROW_START_Y: Final[float] = SNARE_TRIGGER_Y
+BEAM_MAX_GAIN: Final[float] = 2.0
 # Failsafe: must exceed the slowest natural backfire — sinking from BEAM_TOP_Y
 # to BEAM_CROSS_GHOST_Y takes (320 - 120) / 8 = 25 s — so it never preempts it.
 BUST_TIMEOUT_SECONDS: Final[float] = 45.0
