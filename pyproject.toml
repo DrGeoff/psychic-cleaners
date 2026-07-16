@@ -3,6 +3,7 @@ name = "psychic-cleaners"
 version = "0.1.0"
 description = "Clean-room retro remake: run a paranormal sanitation franchise"
 readme = "README.md"
+license = "Unlicense"
 requires-python = ">=3.14"
 dependencies = [
     "pygame-ce>=2.5.7",

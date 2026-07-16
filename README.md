@@ -61,3 +61,7 @@ CI additionally enforces >= 90% coverage on the pure-logic core:
 The shell feeds `Command` objects into `core.game.Game.tick`, which returns `Event`
 objects; the shell draws state and plays a sound per event. Same seed + same commands =
 same game, which is what makes the playthrough tests deterministic.
+
+## License
+
+Public domain — see [LICENSE](LICENSE) ([The Unlicense](https://unlicense.org)).
