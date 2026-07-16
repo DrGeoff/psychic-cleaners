@@ -7,6 +7,7 @@ import pygame
 
 from psychic_cleaners.core.events import Command, EnterAccount, NewGame
 from psychic_cleaners.core.game import Game
+from psychic_cleaners.shell.audio import THEME
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.text import TextRenderer
 
@@ -25,6 +26,39 @@ KARAOKE_WORDS: Final[tuple[str, ...]] = (
 )
 
 
+def _word_boundaries_ms() -> tuple[int, ...]:
+    """Cumulative end-time (ms) of each KARAOKE_WORDS entry within THEME.
+
+    THEME has 16 (note, ms) entries for 8 words -> 2 theme entries per word,
+    matching the theme's "call bars 1-2, answer bars 3-4" structure.
+    """
+    notes_per_word = len(THEME) // len(KARAOKE_WORDS)
+    boundaries: list[int] = []
+    cumulative = 0
+    for i in range(len(KARAOKE_WORDS)):
+        window = THEME[i * notes_per_word : (i + 1) * notes_per_word]
+        cumulative += sum(ms for _, ms in window)
+        boundaries.append(cumulative)
+    return tuple(boundaries)
+
+
+WORD_BOUNDARIES_MS: Final[tuple[int, ...]] = _word_boundaries_ms()
+THEME_TOTAL_MS: Final[int] = WORD_BOUNDARIES_MS[-1]
+
+
+def _ball_index(elapsed: float) -> int:
+    """Which KARAOKE_WORDS entry is active at simulated time `elapsed` seconds.
+
+    Wraps at THEME_TOTAL_MS so the ball re-syncs every theme loop instead
+    of drifting, since the theme itself loops via play(loops=-1).
+    """
+    elapsed_ms = int(elapsed * 1000) % THEME_TOTAL_MS
+    for i, boundary in enumerate(WORD_BOUNDARIES_MS):
+        if elapsed_ms < boundary:
+            return i
+    return len(KARAOKE_WORDS) - 1
+
+
 def _draw_karaoke(surface: pygame.Surface, text: TextRenderer, elapsed: float) -> None:
     """Bouncing-ball lyric line — pure presentation, no game state.
 
@@ -32,7 +66,7 @@ def _draw_karaoke(surface: pygame.Surface, text: TextRenderer, elapsed: float) -
     real time would make this (and any screenshot of it) non-deterministic
     under fast-forwarded or injected dt.
     """
-    ball_index = int(elapsed / 0.5) % len(KARAOKE_WORDS)
+    ball_index = _ball_index(elapsed)
     x = 48
     y = 330
     for i, word in enumerate(KARAOKE_WORDS):
