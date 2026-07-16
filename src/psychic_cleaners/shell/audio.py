@@ -8,6 +8,7 @@ import pygame
 
 SAMPLE_RATE: Final[int] = 22050
 _MAX_AMPLITUDE: Final[int] = 32767
+MASTER_VOLUME: Final[float] = 0.6
 
 
 def _sample_count(ms: int) -> int:
@@ -99,6 +100,16 @@ def mix(*voices: bytes) -> bytes:
     return bytes(out)
 
 
+def _scale(raw: bytes, factor: float) -> bytes:
+    """Scale a raw buffer's samples by factor, clamped to int16 range."""
+    out = bytearray()
+    for i in range(0, len(raw), 2):
+        sample = int.from_bytes(raw[i : i + 2], "little", signed=True)
+        scaled = max(-_MAX_AMPLITUDE - 1, min(_MAX_AMPLITUDE, int(sample * factor)))
+        out += scaled.to_bytes(2, "little", signed=True)
+    return bytes(out)
+
+
 def synth_square(freq: float, ms: int, volume: float = 0.5) -> bytes:
     """Raw 16-bit signed little-endian mono square wave, envelope-shaped."""
     return synth_voice("square", freq, ms, volume)
@@ -173,36 +184,59 @@ def build_theme() -> bytes:
 
 
 _RECIPES: Final[dict[str, Callable[[], bytes]]] = {
-    "catch": lambda: _seq(synth_square(660.0, 60), synth_square(880.0, 90)),
+    "catch": lambda: _seq(
+        mix(synth_voice("square", 660.0, 60, 0.5), synth_voice("triangle", 660.0, 60, 0.3)),
+        mix(synth_voice("square", 880.0, 90, 0.5), synth_voice("square", 1320.0, 90, 0.25)),
+    ),
     "trap": lambda: _seq(
-        synth_square(440.0, 60), synth_square(660.0, 60), synth_square(880.0, 120)
+        synth_voice("square", 440.0, 60, 0.5),
+        synth_voice("square", 660.0, 60, 0.5),
+        mix(synth_voice("square", 880.0, 120, 0.5), synth_voice("square", 1108.0, 120, 0.3)),
     ),
-    "miss": lambda: _seq(synth_square(330.0, 80), synth_square(220.0, 140)),
-    "backfire": lambda: _seq(synth_noise(120, 0.6), synth_square(110.0, 180)),
+    "miss": lambda: _seq(
+        synth_voice("square", 330.0, 80, 0.5), synth_voice("square", 220.0, 140, 0.5)
+    ),
+    "backfire": lambda: _seq(
+        synth_voice("noise", 0.0, 120, 0.7), synth_voice("sawtooth", 110.0, 180, 0.6)
+    ),
     "slime": lambda: _seq(
-        synth_square(180.0, 60), synth_square(140.0, 60), synth_square(180.0, 80)
+        synth_voice("triangle", 180.0, 60, 0.5),
+        synth_voice("triangle", 140.0, 60, 0.5),
+        synth_voice("triangle", 180.0, 80, 0.5),
     ),
-    "stomp": lambda: _seq(synth_noise(60, 0.8), synth_square(70.0, 200, 0.7)),
+    "stomp": lambda: _seq(
+        synth_voice("noise", 0.0, 60, 0.85), synth_voice("sawtooth", 70.0, 200, 0.75)
+    ),
     "alert": lambda: _seq(
-        synth_square(880.0, 70),
-        synth_square(660.0, 70),
-        synth_square(880.0, 70),
-        synth_square(660.0, 70),
+        synth_voice("square", 880.0, 70, 0.5),
+        synth_voice("square", 660.0, 70, 0.5),
+        synth_voice("square", 880.0, 70, 0.5),
+        synth_voice("square", 660.0, 70, 0.5),
     ),
-    "bait": lambda: _seq(synth_square(520.0, 50), synth_square(520.0, 50, 0.3)),
-    "enter": lambda: _seq(synth_square(660.0, 50), synth_square(990.0, 90)),
-    "squash": lambda: _seq(synth_noise(80, 0.7), synth_square(150.0, 130)),
+    "bait": lambda: _seq(
+        synth_voice("square", 520.0, 50, 0.5), synth_voice("square", 520.0, 50, 0.3)
+    ),
+    "enter": lambda: _seq(
+        synth_voice("square", 660.0, 50, 0.4), synth_voice("square", 990.0, 90, 0.4)
+    ),
+    "squash": lambda: _seq(
+        synth_voice("noise", 0.0, 80, 0.75), synth_voice("sawtooth", 150.0, 130, 0.7)
+    ),
     "win": lambda: _seq(
-        synth_square(523.0, 90),
-        synth_square(659.0, 90),
-        synth_square(784.0, 90),
-        synth_square(1046.0, 220),
+        mix(synth_voice("square", 523.0, 90, 0.45), synth_voice("square", 659.0, 90, 0.35)),
+        mix(synth_voice("square", 659.0, 90, 0.45), synth_voice("square", 784.0, 90, 0.35)),
+        mix(synth_voice("square", 784.0, 90, 0.45), synth_voice("square", 988.0, 90, 0.35)),
+        mix(synth_voice("square", 1046.0, 220, 0.5), synth_voice("square", 1318.0, 220, 0.35)),
     ),
     "lose": lambda: _seq(
-        synth_square(392.0, 140), synth_square(330.0, 140), synth_square(262.0, 260)
+        synth_voice("sawtooth", 392.0, 140, 0.5),
+        synth_voice("sawtooth", 330.0, 140, 0.5),
+        synth_voice("sawtooth", 262.0, 260, 0.5),
     ),
-    "buy": lambda: _seq(synth_square(988.0, 40), synth_square(1319.0, 70)),
-    "reject": lambda: synth_square(160.0, 140, 0.6),
+    "buy": lambda: _seq(
+        synth_voice("square", 988.0, 40, 0.35), synth_voice("square", 1319.0, 70, 0.35)
+    ),
+    "reject": lambda: synth_voice("square", 160.0, 140, 0.55),
     "theme": build_theme,
 }
 
@@ -222,7 +256,7 @@ class AudioBank:
             return
         self._enabled = True
         for name, recipe in _RECIPES.items():
-            self._sounds[name] = pygame.mixer.Sound(buffer=recipe())
+            self._sounds[name] = pygame.mixer.Sound(buffer=_scale(recipe(), MASTER_VOLUME))
 
     def play(self, name: str) -> None:
         sound = self._sounds.get(name)

@@ -164,3 +164,22 @@ def test_event_sounds_maps_each_core_event_and_every_value_is_a_recipe() -> None
     for event_type, sound_name in expected.items():
         assert EVENT_SOUNDS.get(event_type) == sound_name, event_type
     assert set(EVENT_SOUNDS.values()) <= set(_RECIPES)
+
+
+def test_all_recipes_produce_nonempty_even_length_audio() -> None:
+    from psychic_cleaners.shell.audio import _RECIPES
+
+    for name, recipe in _RECIPES.items():
+        raw = recipe()
+        assert len(raw) > 0, name
+        assert len(raw) % 2 == 0, name
+
+
+def test_master_volume_is_applied_to_built_sounds() -> None:
+    from psychic_cleaners.shell.audio import _RECIPES, MASTER_VOLUME, _scale
+
+    bank = AudioBank()
+    if not bank._enabled:
+        pytest.skip("mixer unavailable")
+    expected = _scale(_RECIPES["buy"](), MASTER_VOLUME)
+    assert bank._sounds["buy"].get_raw() == expected
