@@ -119,23 +119,37 @@ def test_unknown_name_is_noop() -> None:
 
 def test_event_sounds_maps_each_core_event_and_every_value_is_a_recipe() -> None:
     from psychic_cleaners.core.events import (
+        AccountAccepted,
         AccountRejected,
+        Arrived,
         BaitDeployed,
         BeamsCrossed,
         BuildingStomped,
         BustMissed,
         CleanerSlimed,
+        CleanersRestored,
         CommandRejected,
+        ConvergenceStarted,
         Event,
+        FinaleUnlocked,
         GameLost,
         GameWon,
         GhostTrapped,
+        HauntCleared,
+        HauntStarted,
         ItemBought,
+        LoanRepaid,
+        LoanTaken,
         MascotAlert,
         PurchaseRejected,
+        RentCharged,
         RunnerEntered,
         RunnerSquashed,
+        SnaresEmptied,
+        TravelStarted,
+        VehicleSelected,
         WispCaptured,
+        WispReachedTower,
     )
     from psychic_cleaners.shell.app import EVENT_SOUNDS
     from psychic_cleaners.shell.audio import _RECIPES
@@ -160,6 +174,20 @@ def test_event_sounds_maps_each_core_event_and_every_value_is_a_recipe() -> None
         PurchaseRejected: "reject",
         AccountRejected: "reject",
         CommandRejected: "reject",
+        AccountAccepted: "login",
+        VehicleSelected: "select",
+        TravelStarted: "depart",
+        RentCharged: "rent",
+        LoanTaken: "loan",
+        LoanRepaid: "repay",
+        Arrived: "arrive",
+        HauntStarted: "haunt",
+        HauntCleared: "clear",
+        WispReachedTower: "breach",
+        SnaresEmptied: "dayroll",
+        CleanersRestored: "dayroll",
+        ConvergenceStarted: "converge",
+        FinaleUnlocked: "unlock",
     }
     for event_type, sound_name in expected.items():
         assert EVENT_SOUNDS.get(event_type) == sound_name, event_type

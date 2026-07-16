@@ -237,6 +237,52 @@ _RECIPES: Final[dict[str, Callable[[], bytes]]] = {
         synth_voice("square", 988.0, 40, 0.35), synth_voice("square", 1319.0, 70, 0.35)
     ),
     "reject": lambda: synth_voice("square", 160.0, 140, 0.55),
+    "login": lambda: _seq(
+        synth_voice("triangle", 440.0, 90, 0.4), synth_voice("triangle", 660.0, 140, 0.45)
+    ),
+    "select": lambda: synth_voice("square", 784.0, 40, 0.3),
+    "depart": lambda: _seq(
+        synth_voice("sawtooth", 220.0, 70, 0.4), synth_voice("sawtooth", 330.0, 90, 0.4)
+    ),
+    "rent": lambda: _seq(
+        synth_voice("square", 392.0, 90, 0.45), synth_voice("square", 294.0, 160, 0.45)
+    ),
+    "loan": lambda: _seq(
+        synth_voice("square", 523.0, 60, 0.4),
+        synth_voice("square", 659.0, 60, 0.4),
+        synth_voice("square", 784.0, 100, 0.45),
+    ),
+    "repay": lambda: _seq(
+        synth_voice("square", 659.0, 60, 0.4), synth_voice("square", 523.0, 90, 0.4)
+    ),
+    "arrive": lambda: _seq(
+        synth_voice("square", 587.0, 40, 0.3), synth_voice("square", 587.0, 60, 0.35)
+    ),
+    "haunt": lambda: mix(
+        synth_voice("triangle", 233.0, 220, 0.4), synth_voice("square", 247.0, 220, 0.3)
+    ),
+    "clear": lambda: _seq(
+        mix(synth_voice("square", 523.0, 80, 0.4), synth_voice("square", 659.0, 80, 0.3)),
+        mix(synth_voice("square", 659.0, 80, 0.4), synth_voice("square", 784.0, 80, 0.3)),
+        mix(synth_voice("square", 784.0, 140, 0.45), synth_voice("square", 988.0, 140, 0.3)),
+    ),
+    "breach": lambda: _seq(
+        synth_voice("noise", 0.0, 100, 0.6),
+        synth_voice("sawtooth", 196.0, 220, 0.55),
+        synth_voice("sawtooth", 147.0, 260, 0.55),
+    ),
+    "dayroll": lambda: _seq(
+        synth_voice("triangle", 880.0, 60, 0.35), synth_voice("triangle", 1046.0, 90, 0.35)
+    ),
+    "converge": lambda: mix(
+        synth_voice("sawtooth", 98.0, 400, 0.5), synth_voice("square", 110.0, 400, 0.3)
+    ),
+    "unlock": lambda: _seq(
+        synth_voice("square", 523.0, 70, 0.45),
+        synth_voice("square", 659.0, 70, 0.45),
+        synth_voice("square", 784.0, 70, 0.45),
+        mix(synth_voice("square", 1046.0, 200, 0.5), synth_voice("square", 1318.0, 200, 0.35)),
+    ),
     "theme": build_theme,
 }
 
