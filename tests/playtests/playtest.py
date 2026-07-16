@@ -537,6 +537,7 @@ def phase_mascot(d: Driver) -> None:
     # worst-case idle wait for alert 2 below (up to ~27 rent charges).
     if d.game.wallet.balance < 10_000:
         d.game.wallet.earn(10_000 - d.game.wallet.balance)
+        d.expected_balance = d.game.wallet.balance  # tell the ledger before the next step
     # next alert: deploy bait with B
     ok = d.wait_for(
         lambda: d.game.mascot.state is MascotState.ALERT, 9600, dt=0.25, label="alert 2"
