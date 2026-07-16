@@ -6,6 +6,7 @@ from psychic_cleaners.core.constants import (
     DRIVE_LANES,
     ROAD_LENGTH_VISIBLE,
     VACUUM_BOUNTY,
+    WISP_SPAWN_MARGIN,
 )
 from psychic_cleaners.core.drive import DriveSim, RoadWisp
 from psychic_cleaners.core.events import WispCaptured
@@ -102,7 +103,11 @@ def test_wisp_past_the_car_is_removed_silently() -> None:
     assert sim.wisps == []
 
 
-def test_spawned_wisps_have_valid_lane_and_spawn_at_road_edge() -> None:
+def test_spawned_wisps_have_valid_lane_and_spawn_past_the_road_edge() -> None:
+    # Spawning exactly at ROAD_LENGTH_VISIBLE draws the sprite half on-screen
+    # immediately (center == screen edge): WISP_SPAWN_MARGIN pushes the spawn
+    # point far enough past the edge that the sprite is fully off-screen and
+    # slides into view instead of popping in half-clipped.
     sim = _sim()
     rng = make_rng(7)
     spawned = 0
@@ -112,7 +117,7 @@ def test_spawned_wisps_have_valid_lane_and_spawn_at_road_edge() -> None:
         sim.tick(0.1, rng)
         for wisp in sim.wisps:
             spawned += 1
-            assert wisp.x == ROAD_LENGTH_VISIBLE
+            assert wisp.x == ROAD_LENGTH_VISIBLE + WISP_SPAWN_MARGIN
             assert 0 <= wisp.lane < DRIVE_LANES
             faint_seen.add(wisp.faint)
     assert spawned > 0

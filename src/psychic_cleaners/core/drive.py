@@ -11,6 +11,7 @@ from psychic_cleaners.core.constants import (
     ROAD_WISP_SPAWN_PER_SECOND,
     ROAD_WISP_SPEED,
     VACUUM_BOUNTY,
+    WISP_SPAWN_MARGIN,
 )
 from psychic_cleaners.core.events import Event, WispCaptured
 from psychic_cleaners.core.geometry import clamp
@@ -19,7 +20,9 @@ from psychic_cleaners.core.rng import Rng
 
 @dataclass
 class RoadWisp:
-    x: float  # 0..ROAD_LENGTH_VISIBLE, moves toward 0 (toward the car)
+    # Spawns at ROAD_LENGTH_VISIBLE + WISP_SPAWN_MARGIN (just off the visible
+    # edge), moves toward 0 (toward the car).
+    x: float
     lane: int  # 0..DRIVE_LANES-1
     faint: bool
 
@@ -60,7 +63,7 @@ class DriveSim:
         if rng.random() < ROAD_WISP_SPAWN_PER_SECOND * dt_seconds:
             self.wisps.append(
                 RoadWisp(
-                    x=ROAD_LENGTH_VISIBLE,
+                    x=ROAD_LENGTH_VISIBLE + WISP_SPAWN_MARGIN,
                     lane=rng.randint(0, DRIVE_LANES - 1),
                     faint=rng.random() < FAINT_WISP_CHANCE,
                 )

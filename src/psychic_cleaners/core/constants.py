@@ -57,6 +57,10 @@ ROAD_WISP_SPEED: Final[float] = 120.0  # toward the car, units/sec
 CATCH_RANGE: Final[float] = 24.0
 FAINT_WISP_CHANCE: Final[float] = 0.3
 ROAD_LENGTH_VISIBLE: Final[float] = 640.0
+# Wisps spawn WISP_SPAWN_MARGIN past the visible edge so the 24px sprite
+# (12px half-width) is fully off-screen at spawn and slides into view,
+# instead of being drawn half-clipped at ROAD_LENGTH_VISIBLE itself.
+WISP_SPAWN_MARGIN: Final[float] = 16.0
 
 # bust scene (logical coordinates, 640x400 space)
 BEAM_CROSS_GHOST_Y: Final[float] = 320.0
