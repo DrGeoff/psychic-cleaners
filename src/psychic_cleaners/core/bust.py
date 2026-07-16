@@ -109,7 +109,11 @@ class BustSim:
 
     def _tilt_gain(self) -> float:
         """1.0 at/above BEAM_NARROW_START_Y-depth-or-shallower, ramping
-        linearly to BEAM_MAX_GAIN by BUST_GROUND_Y."""
+        linearly to BEAM_MAX_GAIN by BUST_GROUND_Y.
+
+        Requires BUST_GROUND_Y > BEAM_NARROW_START_Y (division below) — true
+        today (360 > 280); re-check if either is ever retuned.
+        """
         t = clamp(
             (self.ghost_y - BEAM_NARROW_START_Y) / (BUST_GROUND_Y - BEAM_NARROW_START_Y),
             0.0,
