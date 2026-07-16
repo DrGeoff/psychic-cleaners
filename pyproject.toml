@@ -8,6 +8,22 @@ requires-python = ">=3.14"
 dependencies = [
     "pygame-ce>=2.5.7",
 ]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: MacOS X",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: X11 Applications",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Games/Entertainment",
+    "Topic :: Games/Entertainment :: Arcade",
+]
+
+[project.urls]
+Homepage = "https://github.com/DrGeoff/psychic-cleaners"
+Repository = "https://github.com/DrGeoff/psychic-cleaners"
+Issues = "https://github.com/DrGeoff/psychic-cleaners/issues"
 
 [project.scripts]
 psychic-cleaners = "psychic_cleaners.shell.app:main"
