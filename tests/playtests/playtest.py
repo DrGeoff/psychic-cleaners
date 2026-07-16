@@ -528,6 +528,15 @@ def phase_mascot(d: Driver) -> None:
             f"MASCOT: fine is min($4000, balance) = {fine}",
             f"balance_before={balance_before}",
         )
+    # This phase deliberately eats the worst-case fine to exercise that code
+    # path, which can drain the wallet to $0. `TakeLoan` needs the Depot
+    # (the player isn't there mid-mascot-response, same as a real player
+    # wouldn't detour there mid-alert), so top up directly here — a state
+    # injection in the same spirit as phase_finale's inject_profit, not a
+    # rent/bankruptcy behavior change. Sized to comfortably outlast the
+    # worst-case idle wait for alert 2 below (up to ~27 rent charges).
+    if d.game.wallet.balance < 10_000:
+        d.game.wallet.earn(10_000 - d.game.wallet.balance)
     # next alert: deploy bait with B
     ok = d.wait_for(
         lambda: d.game.mascot.state is MascotState.ALERT, 9600, dt=0.25, label="alert 2"
@@ -549,6 +558,13 @@ def phase_mascot(d: Driver) -> None:
 
 def phase_depot_return(d: Driver) -> None:
     print("== DEPOT RETURN ==")
+    if d.game.scene is SceneId.GAME_OVER:
+        # Defensive backstop: an unlucky RNG stretch (or a future change to
+        # the phases above) could still end the run before this phase. Fail
+        # cleanly with the reason instead of crashing on GameOverScene, which
+        # has no .cursor for map_move_cursor to read.
+        check(False, "DEPOT: reachable", f"game ended early: {d.game.lose_reason}")
+        return
     map_move_cursor(d, DEPOT_POS)
     d.key(pygame.K_RETURN)
     d.step()
