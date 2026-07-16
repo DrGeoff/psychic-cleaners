@@ -2,6 +2,8 @@
 
 from collections.abc import Sequence
 
+import pytest
+
 from psychic_cleaners.core.bust import BustOutcome, BustPhase, BustSim
 from psychic_cleaners.core.constants import (
     BEAM_AIM_SPREAD,
@@ -239,8 +241,13 @@ def test_wide_gap_stays_safe_through_full_narrowing() -> None:
     # at BUST_GROUND_Y, where gain reaches its maximum (BEAM_MAX_GAIN).
     # Proves the placement-immunity property end to end: wide-enough
     # placement fully neutralizes the new risk regardless of waiting.
+    #
+    # ghost_x is OUTSIDE the pair (100 < left_x=140), not centered: a
+    # centered ghost at this ghost_y already satisfies the pre-existing,
+    # unrelated sunk_between condition regardless of beams_cross, which
+    # would make this test pass for the wrong reason.
     sim = _active_sim(left=140.0, right=460.0)
-    sim.ghost_x = 320.0
+    sim.ghost_x = 100.0
     sim.ghost_y = BUST_GROUND_Y
     events = sim.tick(1e-6, make_rng(7))
     assert events == []
@@ -289,13 +296,23 @@ def test_ghost_just_outside_slime_range_does_not_slime() -> None:
     assert sim.phase is BustPhase.ACTIVE
 
 
-def test_ghost_in_range_of_both_cleaners_slimes_left_first() -> None:
+def test_ghost_in_range_of_both_cleaners_slimes_left_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # left_x/right_x close enough together (24px apart, inside SLIME_RANGE's
     # 28px) that a ghost just past the left cleaner sits within SLIME_RANGE
     # of both simultaneously. It must NOT sit strictly between them (that
     # would trip the sunk_between backfire check first, not the slime loop).
     # The left/right enumeration order in BustSim.tick must give the left
     # cleaner priority.
+    #
+    # A gap this narrow is now, unavoidably, also within the beam-crossing
+    # backfire's reachable zone at this depth (proven exhaustively: any gap
+    # narrow enough to put the ghost within SLIME_RANGE of both cleaners
+    # simultaneously also satisfies beams_cross here) — so beams_cross is
+    # neutralized via monkeypatch to isolate the slime-loop's priority
+    # ordering specifically, which is what this test is actually about.
+    monkeypatch.setattr("psychic_cleaners.core.bust.segments_cross", lambda *a, **kw: False)
     sim = _active_sim(left=200.0, right=224.0)
     sim.ghost_x = 199.0  # just outside (left of) the pair: 1px from left, 25px from right
     sim.ghost_y = BUST_GROUND_Y

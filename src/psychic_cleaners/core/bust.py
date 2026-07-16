@@ -109,16 +109,7 @@ class BustSim:
 
     def _tilt_gain(self) -> float:
         """1.0 at/above BEAM_NARROW_START_Y-depth-or-shallower, ramping
-        linearly to BEAM_MAX_GAIN by BUST_GROUND_Y. Gain only applies when
-        the ghost is between the cleaners; otherwise remains at 1.0 to preserve
-        baseline beam geometry for out-of-pair ghosts."""
-        left_x = self.left_x
-        right_x = self.right_x
-        if left_x is not None and right_x is not None:
-            is_between = min(left_x, right_x) < self.ghost_x < max(left_x, right_x)
-            if not is_between:
-                return 1.0
-
+        linearly to BEAM_MAX_GAIN by BUST_GROUND_Y."""
         t = clamp(
             (self.ghost_y - BEAM_NARROW_START_Y) / (BUST_GROUND_Y - BEAM_NARROW_START_Y),
             0.0,
@@ -149,18 +140,14 @@ class BustSim:
         # (ghost_y >= BEAM_CROSS_GHOST_Y), so both beams angle steeply down at
         # it and cross behind it. (b) is the reachable, player-caused hazard:
         # SNARE_TRIGGER_Y (280) < BEAM_CROSS_GHOST_Y (320) leaves a 40px skill
-        # window where the ghost is springable but not yet backfiring. However,
-        # a wide-enough cleaner gap (~300px) provides placement-based immunity
-        # even at maximum depth: the beams' clamped geometry prevents crossing.
+        # window where the ghost is springable but not yet backfiring.
         beams = self.beam_endpoints()
         beams_cross = beams is not None and segments_cross(
             beams[0][0], beams[0][1], beams[1][0], beams[1][1]
         )
-        gap = max(left_x, right_x) - min(left_x, right_x)
         sunk_between = (
             min(left_x, right_x) < self.ghost_x < max(left_x, right_x)
             and self.ghost_y >= BEAM_CROSS_GHOST_Y
-            and gap < 300.0  # Wide gaps provide placement immunity
         )
         if beams_cross or sunk_between:
             self.outcome = BustOutcome.BACKFIRE
