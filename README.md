@@ -20,6 +20,15 @@ concept-by-concept theme mapping is in
 Every sprite, sound, and melody shown above is generated in code at startup — no image or
 audio assets ship in this repo (see `shell/gfx.py` and `shell/audio.py`).
 
+## Provenance
+
+This project is 100% vibe coded: no human looked at the game itself — played it, watched it
+run, or reviewed a screenshot — until it was published as `v20260716-1`. All design,
+implementation, and verification up to that point were done by an AI agent operating this
+repository end to end (specs, plans, tests, the scripted playtest harness, and CI), with the
+human author directing scope and reviewing written artifacts (specs, plans, diffs) rather
+than the running game.
+
 ## Install
 
 Requires Python >= 3.14 and [uv](https://docs.astral.sh/uv/).

@@ -313,7 +313,7 @@ wheels = [
 
 [[package]]
 name = "psychic-cleaners"
-version = "0.1.0"
+version = "20260716.1"
 source = { editable = "." }
 dependencies = [
     { name = "pygame-ce" },

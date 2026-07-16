@@ -1,6 +1,6 @@
 [project]
 name = "psychic-cleaners"
-version = "0.1.0"
+version = "20260716.1"
 description = "Clean-room retro remake: run a paranormal sanitation franchise"
 readme = "README.md"
 license = "Unlicense"
