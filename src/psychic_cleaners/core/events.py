@@ -66,6 +66,16 @@ class SetDestination(Command):
 
 
 @dataclass(frozen=True)
+class TakeLoan(Command):
+    pass
+
+
+@dataclass(frozen=True)
+class RepayLoan(Command):
+    pass
+
+
+@dataclass(frozen=True)
 class Steer(Command):
     delta: int  # -1 = lane up, +1 = lane down
 
@@ -148,6 +158,22 @@ class CommandRejected(Event):
 class TravelStarted(Event):
     dest: GridPos
     distance: float
+
+
+@dataclass(frozen=True)
+class RentCharged(Event):
+    amount: int
+    day: int
+
+
+@dataclass(frozen=True)
+class LoanTaken(Event):
+    amount: int
+
+
+@dataclass(frozen=True)
+class LoanRepaid(Event):
+    amount: int
 
 
 @dataclass(frozen=True)

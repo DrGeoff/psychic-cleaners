@@ -15,6 +15,8 @@ def _example_commands() -> list[events.Command]:
         events.BuyItem(item_id="snare"),
         events.FinishShopping(),
         events.SetDestination(pos=(3, 2)),
+        events.TakeLoan(),
+        events.RepayLoan(),
         events.Steer(delta=-1),
         events.MoveCleaner(dx=4.0),
         events.PlaceCleaner(),
@@ -49,7 +51,7 @@ def test_scene_id_has_exactly_seven_members() -> None:
 def test_every_command_class_constructs() -> None:
     constructed = {type(command) for command in _example_commands()}
     assert constructed == _declared_subclasses(events.Command)
-    assert len(constructed) == 14
+    assert len(constructed) == 16
 
 
 def test_command_equality_by_value() -> None:
@@ -76,6 +78,9 @@ def _example_events() -> list[events.Event]:
         events.PurchaseRejected(reason="cannot afford"),
         events.CommandRejected(reason="no snare laid"),
         events.TravelStarted(dest=(4, 1), distance=800.0),
+        events.RentCharged(amount=1000, day=1),
+        events.LoanTaken(amount=5000),
+        events.LoanRepaid(amount=5000),
         events.Arrived(pos=(4, 1)),
         events.WispCaptured(bounty=100),
         events.HauntStarted(pos=(2, 2)),
@@ -103,7 +108,7 @@ def _example_events() -> list[events.Event]:
 def test_every_event_class_constructs() -> None:
     constructed = {type(event) for event in _example_events()}
     assert constructed == _declared_subclasses(events.Event)
-    assert len(constructed) == 29
+    assert len(constructed) == 32
 
 
 def test_event_equality_by_value() -> None:
