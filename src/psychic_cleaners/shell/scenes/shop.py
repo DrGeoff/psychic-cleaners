@@ -21,6 +21,8 @@ _NAME_X: Final[int] = 44
 _PRICE_X: Final[int] = 280
 _SUFFIX_X: Final[int] = 380
 
+_CONTROL_HINT: Final[str] = "Up/Down: select - Enter: buy vehicle or item - F: finish shopping"
+
 
 class ShopScene:
     """Vertical menu: 4 vehicles then 7 items. Up/Down moves, Enter buys, F finishes."""
@@ -88,5 +90,6 @@ class ShopScene:
             text.draw(surface, f"${row.price}", (_PRICE_X, y), size=16, color=color)
             if suffix:
                 text.draw(surface, suffix, (_SUFFIX_X, y), size=16, color=color)
+        text.draw(surface, _CONTROL_HINT, (24, 356), size=16)
         if game.notice is not None:
             text.draw(surface, game.notice, (24, 376), size=16, color=_NOTICE_RED)

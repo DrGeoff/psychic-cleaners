@@ -154,7 +154,8 @@ class TitleScene:
             text.draw(surface, game.notice, (110, 305), size=16, color=(255, 96, 96))
         text.draw(
             surface,
-            "Tab switches fields. Enter starts. Blank code = new $10,000 franchise.",
+            "Tab switches fields, Backspace deletes. Enter starts. "
+            "Blank code = new $10,000 franchise.",
             (110, 340),
             size=14,
             color=(160, 160, 190),

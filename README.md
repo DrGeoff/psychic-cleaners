@@ -26,7 +26,7 @@ with. Your account code carries the bankroll into the next game.
 
 | Scene     | Keys                                                                         |
 |-----------|------------------------------------------------------------------------------|
-| Title     | Type your name; `Tab` toggles new-franchise / account-code entry; `Enter` confirms |
+| Title     | Type your name; `Tab` switches between the Name and Account code fields; `Backspace` deletes; `Enter` confirms (blank code = new franchise, filled code = restore account) |
 | Shop      | `Up`/`Down` select; `Enter` buy vehicle or item; `F` finish shopping           |
 | City map  | Arrow keys move the cursor; `Enter` travel; `B` deploy gummy bait on an alert; `S` buy a snare at the Depot; `L` take a Depot loan; `P` repay a Depot loan |
 | Driving   | `Up`/`Down` change lane; `B` deploy gummy bait on an alert                     |
