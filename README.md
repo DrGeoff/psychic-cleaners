@@ -12,6 +12,14 @@ concept-by-concept theme mapping is in
 [docs/superpowers/specs/2026-07-13-psychic-cleaners-design.md](docs/superpowers/specs/2026-07-13-psychic-cleaners-design.md)
 (section 3).
 
+<p align="center">
+  <img src="docs/screenshots/title.png" width="49%" alt="Title screen with the code-generated logo and karaoke lyric line">
+  <img src="docs/screenshots/city-map.png" width="49%" alt="City map with buildings, the Depot, and the HUD">
+</p>
+
+Every sprite, sound, and melody shown above is generated in code at startup — no image or
+audio assets ship in this repo (see `shell/gfx.py` and `shell/audio.py`).
+
 ## Install
 
 Requires Python >= 3.14 and [uv](https://docs.astral.sh/uv/).
