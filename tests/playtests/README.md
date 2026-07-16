@@ -14,6 +14,7 @@ uv run python tests/playtests/playtest.py 12345 --inject-profit
 uv run python tests/playtests/playtest2.py
 uv run python tests/playtests/playtest3.py
 uv run python tests/playtests/drive3.py
+uv run python tests/playtests/playtest_beam_crossing.py
 ```
 
 Each prints `[PASS]`/`[FAIL]` per check and exits non-zero on any failure.
@@ -24,6 +25,7 @@ Each prints `[PASS]`/`[FAIL]` per check and exits non-zero on any failure.
 | `playtest2.py` | Failure scenarios the happy path can't stage: backfire, turn-aways, containment rig, fold, profit boundary, codec fuzz (round-trips, typos, wrong name), pixel checks (banner, wisp visibility). | 1–2 min |
 | `playtest3.py` | Round-2 fix verification: name clamp, bait stacking, notice expiry, haunt visible under the tower, immediate arrival on the current cell, faint-wisp lens rules, wallet clamp. | ~1 min |
 | `drive3.py` | Round-1 fix verification through the real UI: rejected-code field survival, notice scoping, slimed turn-aways, tower turn-away vs. loss, depot restore. | ~1 min |
+| `playtest_beam_crossing.py` | Beam-crossing backfire mechanic (2026-07-16): narrow cleaner gap + off-center ghost sunk to the ground fires `BeamsCrossed` independently of `sunk_between`; wide cleaner gap (≥300px) stays immune at the same depth. Ghost position is injected directly on the real `BustSim` after real input reaches `ACTIVE`, isolating the geometry check from drift/sink timing. | ~10 s |
 
 Notes:
 
