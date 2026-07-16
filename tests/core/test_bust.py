@@ -183,12 +183,31 @@ def test_backfire_when_ghost_sinks_low_between_cleaners() -> None:
     assert sim.phase is BustPhase.RESOLVED
 
 
-def test_no_backfire_in_skill_window() -> None:
-    # SNARE_TRIGGER_Y (280) < BEAM_CROSS_GHOST_Y (320): in the 40px band between
-    # them the ghost is already springable but not yet backfiring.
+def test_standard_gap_now_risky_partway_through_skill_window() -> None:
+    # Design decision (2026-07-16-beam-crossing-backfire-design.md, approved
+    # supersession of its own open question): the 40px "skill window"
+    # (SNARE_TRIGGER_Y=280 to BEAM_CROSS_GHOST_Y=320) is deliberately no
+    # longer risk-free for the STANDARD 240px cleaner gap this whole test
+    # file otherwise uses as its default. This is the same exact scenario as
+    # test_beams_cross_fires_independently_of_sunk_between in test_bust.py —
+    # duplicated here under this name to keep the skill-window story
+    # discoverable at its original location.
     sim = _active_sim(left=200.0, right=440.0)
     sim.ghost_x = 320.0
-    sim.ghost_y = (SNARE_TRIGGER_Y + BEAM_CROSS_GHOST_Y) / 2  # 300.0, inside the window
+    sim.ghost_y = (SNARE_TRIGGER_Y + BEAM_CROSS_GHOST_Y) / 2  # 300.0
+    events = sim.tick(1e-6, make_rng(7))
+    assert events == [BeamsCrossed()]
+    assert sim.outcome is BustOutcome.BACKFIRE
+
+
+def test_wide_gap_keeps_skill_window_safe() -> None:
+    # The ORIGINAL intent of test_no_backfire_in_skill_window — a safe
+    # springable-but-not-yet-backfiring window — still holds, but now
+    # conditioned on placement: a cleaner gap at or past the ~300px
+    # immunity boundary keeps the window fully safe, same ghost_y as above.
+    sim = _active_sim(left=140.0, right=460.0)  # gap=320
+    sim.ghost_x = 320.0
+    sim.ghost_y = (SNARE_TRIGGER_Y + BEAM_CROSS_GHOST_Y) / 2  # 300.0
     assert sim.tick(1e-6, make_rng(7)) == []
     assert sim.outcome is None
     assert sim.phase is BustPhase.ACTIVE
