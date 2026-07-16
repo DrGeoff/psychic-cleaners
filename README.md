@@ -13,8 +13,8 @@ concept-by-concept theme mapping is in
 (section 3).
 
 <p align="center">
-  <img src="docs/screenshots/title.png" width="49%" alt="Title screen with the code-generated logo and karaoke lyric line">
-  <img src="docs/screenshots/city-map.png" width="49%" alt="City map with buildings, the Depot, and the HUD">
+  <img src="docs/screenshots/city-map.png" width="49%" alt="City map with the Depot, a wisp, haunted buildings, and the HUD">
+  <img src="docs/screenshots/bust.png" width="49%" alt="Busting a stain-ghost between two beam-cleaners">
 </p>
 
 Every sprite, sound, and melody shown above is generated in code at startup — no image or
