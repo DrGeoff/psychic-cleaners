@@ -21,9 +21,14 @@ from psychic_cleaners.core.codec import AccountCodeError, decode_account, encode
 from psychic_cleaners.core.constants import (
     CLEANER_COUNT,
     CONTAINMENT_RIG_CAPACITY,
+    DAY_LENGTH_GAME_MINUTES,
     DEPOT_POS,
     FINALE_NEEDED_INSIDE,
+    LOAN_BORROW_INCREMENT,
+    LOAN_INTEREST_RATE_PER_DAY,
+    LOAN_MAX,
     NOTICE_LIFETIME_SECONDS,
+    RENT_PER_DAY,
     STARTING_BANKROLL,
     STOMP_FINE,
     STOMP_PSI_SPIKE,
@@ -60,10 +65,14 @@ from psychic_cleaners.core.events import (
     HauntCleared,
     ItemBought,
     LaySnare,
+    LoanRepaid,
+    LoanTaken,
     MoveCleaner,
     NewGame,
     PlaceCleaner,
     PurchaseRejected,
+    RentCharged,
+    RepayLoan,
     SceneChanged,
     SceneId,
     SelectVehicle,
@@ -73,6 +82,7 @@ from psychic_cleaners.core.events import (
     StartRun,
     Steer,
     StompTriggered,
+    TakeLoan,
     TravelStarted,
     VehicleSelected,
     WispCaptured,
@@ -130,6 +140,9 @@ class Game:
     convergence: Convergence | None = None  # the Warden and the Locksmith, walking
     finale_unlocked: bool = False
     shop_fold_warned: bool = False  # FinishShopping doom warning shown once
+    day: int = 1
+    debt: int = 0
+    rent_bankrupt: bool = False  # set by _tick_day_rollover, consumed and cleared in tick()
 
     def tick(self, commands: Sequence[Command], dt_seconds: float) -> list[Event]:
         events: list[Event] = []
@@ -165,13 +178,18 @@ class Game:
             if self.bust is not None and self.bust.phase is BustPhase.RESOLVED:
                 events.extend(self._resolve_bust())
             # Bankruptcy: the franchise folds only when it cannot field a snare
-            # by any means (see _cannot_field_snare).
+            # by any means (see _cannot_field_snare), or when a day's rent
+            # could not be paid (see _tick_day_rollover).
             if (
                 self.scene in _WORLD_SCENES
                 and self.loadout is not None
                 and self._cannot_field_snare()
             ):
                 self._lose("no snares left — the franchise folds", events)
+                self._change_scene(SceneId.GAME_OVER, events)
+            elif self.rent_bankrupt:
+                self.rent_bankrupt = False
+                self._lose("rent due, can't pay — the franchise folds", events)
                 self._change_scene(SceneId.GAME_OVER, events)
         if scene is SceneId.FINALE:
             events.extend(self._tick_finale(dt_seconds))
@@ -188,11 +206,33 @@ class Game:
             self.notice_remaining -= dt_seconds
             if self.notice_remaining <= 0:
                 self._clear_notice()
+        events: list[Event] = []
+        self._tick_day_rollover(events)
         self.psi.advance(dt_seconds, self.city.active_haunts())
-        events = self.city.tick(dt_seconds, self.psi.value, self.rng)
+        events.extend(self.city.tick(dt_seconds, self.psi.value, self.rng))
         has_sensor = self.loadout.has("sensor") if self.loadout is not None else False
         events.extend(self.mascot.tick(dt_seconds, self.psi.value, has_sensor, self.rng))
         return events
+
+    def _tick_day_rollover(self, events: list[Event]) -> None:
+        """Charge rent and compound loan interest on each day-boundary crossing.
+
+        A `while`, not an `if`: a single long dt_seconds (e.g. a big scripted
+        skip) can cross more than one day boundary, and each one must charge
+        its own rent/interest rather than being merged or skipped.
+        """
+        while self.clock.minutes >= self.day * DAY_LENGTH_GAME_MINUTES:
+            if self.debt > 0:
+                self.debt = round(self.debt * (1 + LOAN_INTEREST_RATE_PER_DAY))
+            if self.wallet.can_afford(RENT_PER_DAY):
+                self.wallet.spend(RENT_PER_DAY)
+                events.append(RentCharged(RENT_PER_DAY, self.day))
+                self._set_notice(f"rent due: -${RENT_PER_DAY}")
+                self.day += 1
+            else:
+                self.rent_bankrupt = True
+                self.day += 1
+                break
 
     def _set_notice(self, reason: str) -> None:
         """Arm a rejection message with its on-screen lifetime.
@@ -388,6 +428,10 @@ class Game:
             return self._set_destination(command.pos)
         if isinstance(command, BuyItem):
             return self._depot_restock(command.item_id)
+        if isinstance(command, TakeLoan):
+            return self._take_loan()
+        if isinstance(command, RepayLoan):
+            return self._repay_loan()
         return []
 
     def _set_destination(self, pos: GridPos) -> list[Event]:
@@ -411,6 +455,28 @@ class Game:
         if item_id != "snare" or self.position != DEPOT_POS:
             return [self._reject("snares only, at the Depot", PurchaseRejected)]
         return [self._purchase("snare", ITEMS["snare"])]
+
+    def _take_loan(self) -> list[Event]:
+        if self.position != DEPOT_POS:
+            return [self._reject("loans only at the Depot", CommandRejected)]
+        if self.debt + LOAN_BORROW_INCREMENT > LOAN_MAX:
+            return [self._reject("loan limit reached", CommandRejected)]
+        self.wallet.earn(LOAN_BORROW_INCREMENT)
+        self.debt += LOAN_BORROW_INCREMENT
+        self._clear_notice()
+        return [LoanTaken(LOAN_BORROW_INCREMENT)]
+
+    def _repay_loan(self) -> list[Event]:
+        if self.position != DEPOT_POS:
+            return [self._reject("loans only at the Depot", CommandRejected)]
+        if self.debt == 0:
+            return [self._reject("no debt to repay", CommandRejected)]
+        amount = min(LOAN_BORROW_INCREMENT, self.debt)
+        if not self.wallet.spend(amount):
+            return [self._reject("cannot afford repayment", CommandRejected)]
+        self.debt -= amount
+        self._clear_notice()
+        return [LoanRepaid(amount)]
 
     def _purchase(self, item_id: str, item: Item) -> Event:
         """Shared afford/capacity check and spend+add+clear_notice sequence.
@@ -503,7 +569,7 @@ class Game:
         events.extend(self.finale.tick(dt_seconds))
         outcome = self.finale.outcome
         if outcome is FinaleOutcome.WON:
-            if net_worth_profited_over(self.wallet.balance, 0, self.starting_bankroll):
+            if net_worth_profited_over(self.wallet.balance, self.debt, self.starting_bankroll):
                 code = encode_account(self.player_name, self.wallet.balance)
                 self.result = "won"
                 self.last_account_code = code
@@ -614,6 +680,9 @@ class Game:
         self.convergence = None
         self.finale_unlocked = False
         self.shop_fold_warned = False
+        self.day = 1
+        self.debt = 0
+        self.rent_bankrupt = False
 
 
 def new_game(seed: int) -> Game:

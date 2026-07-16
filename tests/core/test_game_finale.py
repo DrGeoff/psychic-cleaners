@@ -141,6 +141,31 @@ def test_finale_win_with_profit_issues_account_code() -> None:
     assert game.finale is None
 
 
+def test_finale_win_with_profit_but_debt_that_erases_it_still_loses() -> None:
+    game = _game_in_finale()
+    game.wallet.earn(5_000)  # balance 12_400 > starting 10_000 on cash alone
+    game.debt = 3_000  # but net worth 9_400 <= starting 10_000
+    assert game.finale is not None
+    game.finale.inside = 1
+    game.tick([StartRun()], 0.0)
+    events = game.tick([], 3.25)
+    assert GameLost("the franchise never turned a profit") in events
+    assert game.result == "lost"
+
+
+def test_finale_win_with_debt_but_enough_net_worth_still_wins() -> None:
+    game = _game_in_finale()
+    game.wallet.earn(5_000)  # balance 12_400
+    game.debt = 1_000  # net worth 11_400 > starting 10_000
+    assert game.finale is not None
+    game.finale.inside = 1
+    game.tick([StartRun()], 0.0)
+    events = game.tick([], 3.25)
+    won = [e for e in events if isinstance(e, GameWon)]
+    assert len(won) == 1
+    assert game.result == "won"
+
+
 def test_finale_win_without_profit_still_loses() -> None:
     game = _game_in_finale()  # balance 7_400 <= starting 10_000: no profit
     assert game.finale is not None
