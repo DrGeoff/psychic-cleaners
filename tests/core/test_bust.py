@@ -220,6 +220,42 @@ def test_ghost_slimes_right_cleaner_at_ground() -> None:
     assert sim.slimed_side == 1
 
 
+def test_ghost_at_exact_slime_range_boundary_slimes() -> None:
+    # math.hypot(...) <= SLIME_RANGE is inclusive: exactly SLIME_RANGE away
+    # must still slime, not require strictly-inside.
+    sim = _active_sim(left=200.0, right=440.0)
+    sim.ghost_x = 200.0 - SLIME_RANGE  # distance == SLIME_RANGE exactly
+    sim.ghost_y = BUST_GROUND_Y
+    sim.tick(0.0, _StillRng())  # zero dt + still rng: ghost_x/y unmoved by this tick
+    assert sim.outcome is BustOutcome.SLIMED
+    assert sim.slimed_side == 0
+
+
+def test_ghost_just_outside_slime_range_does_not_slime() -> None:
+    sim = _active_sim(left=200.0, right=440.0)
+    sim.ghost_x = 200.0 - SLIME_RANGE - 1.0  # one unit past the boundary
+    sim.ghost_y = BUST_GROUND_Y
+    events = sim.tick(0.0, _StillRng())
+    assert events == []
+    assert sim.outcome is None
+    assert sim.phase is BustPhase.ACTIVE
+
+
+def test_ghost_in_range_of_both_cleaners_slimes_left_first() -> None:
+    # left_x/right_x close enough together (24px apart, inside SLIME_RANGE's
+    # 28px) that a ghost just past the left cleaner sits within SLIME_RANGE
+    # of both simultaneously. It must NOT sit strictly between them (that
+    # would trip the sunk_between backfire check first, not the slime loop).
+    # The left/right enumeration order in BustSim.tick must give the left
+    # cleaner priority.
+    sim = _active_sim(left=200.0, right=224.0)
+    sim.ghost_x = 199.0  # just outside (left of) the pair: 1px from left, 25px from right
+    sim.ghost_y = BUST_GROUND_Y
+    sim.tick(0.0, _StillRng())
+    assert sim.outcome is BustOutcome.SLIMED
+    assert sim.slimed_side == 0
+
+
 def test_ghost_escaped_outside_the_pair_still_resolves() -> None:
     # Regression: the old repel pushed away from the nearer cleaner in whatever
     # direction the ghost already was, so a ghost that slipped OUTSIDE the pair

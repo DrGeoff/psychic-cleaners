@@ -11,6 +11,7 @@ from psychic_cleaners.core.events import (
     SceneChanged,
     SceneId,
     SelectVehicle,
+    SetDestination,
     VehicleSelected,
 )
 from psychic_cleaners.core.game import Game, new_game
@@ -59,6 +60,48 @@ def test_buying_sensor_and_bait_arms_the_mascot_defense() -> None:
     assert game.loadout.has("sensor")
     assert game.loadout.count("bait") == 1
     assert game.loadout.bait_charges == 5  # one pack: BAIT_PACK_SIZE
+
+
+def test_wagon_purchase_wires_speed_and_capacity_into_play() -> None:
+    # compact and hearse are exercised everywhere else in this suite; wagon
+    # and performance are otherwise never successfully bought, so their
+    # catalog speed/capacity would be free to drift without any test noticing.
+    game = _shop_game()
+    events = game.tick([SelectVehicle("wagon")], 0.0)
+    assert VehicleSelected("wagon") in events
+    assert game.wallet.balance == 10_000 - 6_000
+    assert game.loadout is not None
+    assert game.loadout.vehicle.id == "wagon"
+    assert game.loadout.vehicle.capacity == 11
+    fill = ["detector", "lens", "sensor", "vacuum"]  # 1+1+1+1 = 4 slots, 1600 of 4000 left
+    game.tick([BuyItem(item_id) for item_id in fill], 0.0)
+    assert game.loadout.slots_used() == 4  # would overflow a 3-slot-remaining compact
+    game.tick([BuyItem("snare")], 0.0)
+    game.tick([FinishShopping()], 0.0)
+    assert game.scene == SceneId.MAP
+    events = game.tick([SetDestination((1, 1))], 0.0)
+    assert game.drive is not None
+    assert game.drive.speed == 140.0  # wagon's catalog speed, not a stale default
+    assert any(isinstance(e, SceneChanged) for e in events)
+
+
+def test_performance_purchase_wires_speed_into_play() -> None:
+    # performance (15000) costs more than the starting bankroll (10000), so
+    # it is structurally unpurchasable without a bankroll bump; simulate a
+    # returning-player wallet the way test_bust_flow's _shopped_game does.
+    game = _shop_game()
+    game.wallet.balance = 20_000
+    events = game.tick([SelectVehicle("performance")], 0.0)
+    assert VehicleSelected("performance") in events
+    assert game.wallet.balance == 20_000 - 15_000
+    assert game.loadout is not None
+    assert game.loadout.vehicle.id == "performance"
+    game.tick([BuyItem("snare")], 0.0)
+    game.tick([FinishShopping()], 0.0)
+    assert game.scene == SceneId.MAP
+    game.tick([SetDestination((1, 1))], 0.0)
+    assert game.drive is not None
+    assert game.drive.speed == 200.0  # performance's catalog speed
 
 
 def test_unaffordable_vehicle_rejected() -> None:

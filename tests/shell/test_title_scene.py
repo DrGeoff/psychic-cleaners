@@ -105,6 +105,18 @@ def test_reset_clears_both_fields_and_refocuses_name() -> None:
     assert scene._focus is _Field.NAME  # type: ignore[comparison-overlap]
 
 
+def test_enter_with_whitespace_only_code_still_routes_to_enter_account() -> None:
+    # The code field's emptiness guard is a raw `if self._code:`, unlike the
+    # name field's `.strip()` check — a whitespace-only code is non-empty in
+    # Python and routes to EnterAccount, not NewGame. Pinning this explicitly
+    # rather than leaving it to be discovered only via decode_account's
+    # rejection at the core layer.
+    scene = TitleScene()
+    scene.commands([_text("P"), _text("a"), _text("t"), _key(pygame.K_TAB)], _game(), 1 / 60)
+    out = scene.commands([_text(" "), _key(pygame.K_RETURN)], _game(), 1 / 60)
+    assert out == [EnterAccount("Pat", " ")]
+
+
 def test_enter_ignored_while_name_empty() -> None:
     scene = TitleScene()
     assert scene.commands([_key(pygame.K_RETURN)], _game(), 1 / 60) == []

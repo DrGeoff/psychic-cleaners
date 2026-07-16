@@ -1,11 +1,32 @@
 """Tests for the Sir Squish threat model (core/giant.py)."""
 
+from collections.abc import Sequence
+
 import pytest
 
 from psychic_cleaners.core.constants import MASCOT_ALERT_WINDOW
 from psychic_cleaners.core.events import Event, MascotAlert, StompTriggered
 from psychic_cleaners.core.giant import MascotModel, MascotState
 from psychic_cleaners.core.rng import make_rng
+
+
+class _FixedRng:
+    """Rng stub whose random() always returns a fixed value."""
+
+    def __init__(self, value: float) -> None:
+        self._value = value
+
+    def random(self) -> float:
+        return self._value
+
+    def randint(self, a: int, b: int) -> int:
+        return a
+
+    def uniform(self, a: float, b: float) -> float:
+        return a
+
+    def choice[T](self, seq: Sequence[T]) -> T:
+        return seq[0]
 
 
 def _tick_until_event(mascot: MascotModel, psi: int, *, sensor: bool, seed: int) -> list[Event]:
@@ -55,6 +76,26 @@ def test_alert_counts_down_and_expires_to_stomp() -> None:
     assert final == [StompTriggered()]
     assert mascot.state == MascotState.CALM
     assert mascot.alert_remaining == 0.0
+
+
+def test_mid_psi_rate_formula_is_exact() -> None:
+    # psi=1000 -> rate_per_minute = 0.10 * (1000/1000) = 0.10/min. Over a full
+    # 60s tick that's chance == 0.10 exactly. The psi=0/9999 extremes pass
+    # under almost any scaling error (0 stays 0 regardless, 9999 fires
+    # "eventually" regardless); this pins the /1000 psi-normalization term.
+    assert MascotModel().tick(60.0, 1_000, True, _FixedRng(0.099999)) == [
+        MascotAlert(MASCOT_ALERT_WINDOW)
+    ]
+    assert MascotModel().tick(60.0, 1_000, True, _FixedRng(0.1)) == []  # strict <: at-threshold
+
+
+def test_mid_psi_rate_scales_with_dt() -> None:
+    # Same psi, half the dt: chance halves to 0.05. Pins the dt_seconds/60.0
+    # per-minute-to-per-tick conversion specifically.
+    assert MascotModel().tick(30.0, 1_000, True, _FixedRng(0.0499)) == [
+        MascotAlert(MASCOT_ALERT_WINDOW)
+    ]
+    assert MascotModel().tick(30.0, 1_000, True, _FixedRng(0.05)) == []
 
 
 def test_deploy_bait_in_calm_returns_false() -> None:

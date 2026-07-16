@@ -1,11 +1,31 @@
 """Deterministic tests for City.tick: hauntings and wisps."""
 
 import math
+from collections.abc import Sequence
 
 from psychic_cleaners.core.city import City, Wisp
-from psychic_cleaners.core.constants import MAX_ACTIVE_HAUNTS
+from psychic_cleaners.core.constants import MAX_ACTIVE_HAUNTS, PSI_MAX
 from psychic_cleaners.core.events import GridPos, HauntStarted, WispReachedTower
 from psychic_cleaners.core.rng import make_rng
+
+
+class _FixedRng:
+    """Rng stub whose random() is fixed; choice() always takes the first candidate."""
+
+    def __init__(self, value: float) -> None:
+        self._value = value
+
+    def random(self) -> float:
+        return self._value
+
+    def randint(self, a: int, b: int) -> int:
+        return a
+
+    def uniform(self, a: float, b: float) -> float:
+        return a
+
+    def choice[T](self, seq: Sequence[T]) -> T:
+        return seq[0]
 
 
 def test_haunts_spawn_and_respect_cap() -> None:
@@ -42,6 +62,30 @@ def test_no_haunt_with_zero_dt() -> None:
     city = City.new()
     assert city.tick(0.0, psi_value=9999, rng=rng) == []
     assert city.active_haunts() == 0
+
+
+def test_haunt_chance_scales_with_psi_at_nonzero_dt() -> None:
+    # Every other haunt test here either fixes psi_value=0 (nonzero dt) or
+    # pairs psi=9999 with dt=0.0 (test_no_haunt_with_zero_dt), which zeroes
+    # the psi term via multiplication by dt. None exercises
+    # HAUNT_CHANCE_PER_REAL_MINUTE * (1 + psi/PSI_MAX) with both dt_seconds
+    # and psi_value nonzero at once — a broken or inverted scaling term would
+    # pass every existing haunt test undetected.
+    #
+    # dt=30s (half a real minute), psi=PSI_MAX: chance = 0.8 * 2 * 0.5 = 0.8 exactly.
+    events = City.new().tick(30.0, psi_value=PSI_MAX, rng=_FixedRng(0.7999))
+    assert any(isinstance(e, HauntStarted) for e in events)
+
+    events = City.new().tick(30.0, psi_value=PSI_MAX, rng=_FixedRng(0.8))  # at threshold: no spawn
+    assert not any(isinstance(e, HauntStarted) for e in events)
+
+    # Same dt, psi=0: chance = 0.8 * 1 * 0.5 = 0.4 exactly — half of the
+    # psi=PSI_MAX threshold above, proving the (1 + psi/PSI_MAX) term is live.
+    events = City.new().tick(30.0, psi_value=0, rng=_FixedRng(0.3999))
+    assert any(isinstance(e, HauntStarted) for e in events)
+
+    events = City.new().tick(30.0, psi_value=0, rng=_FixedRng(0.4))  # at threshold: no spawn
+    assert not any(isinstance(e, HauntStarted) for e in events)
 
 
 def test_wisp_drifts_toward_tower_with_normalised_direction() -> None:

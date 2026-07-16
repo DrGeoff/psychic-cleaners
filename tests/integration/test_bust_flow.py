@@ -241,3 +241,20 @@ def test_slimed_bust_reports_game_level_cleaner_index() -> None:
     assert game.loadout is not None
     assert game.loadout.count("snare") == 1
     assert game.scene is SceneId.MAP
+
+
+def test_slimed_bust_right_side_maps_to_second_unslimed_index() -> None:
+    # The left-side case above only exercises unslimed[0]; slimed_side=1 (the
+    # right cleaner) must map through unslimed[1], not be silently skipped or
+    # off-by-one'd against unslimed[0].
+    game = _game_at_bust(snares=2)
+    game.slimed = {0}  # cleaner 0 already out: participants are 1 and 2
+    bust = _lay_and_activate(game)
+    bust.ghost_x = 440.0 + SLIME_RANGE / 2  # brushing the right cleaner from outside
+    bust.ghost_y = BUST_GROUND_Y
+    events = game.tick([], 0.0)
+    assert CleanerSlimed(2) in events  # right side maps to the second unslimed index
+    assert game.slimed == {0, 2}
+    assert game.loadout is not None
+    assert game.loadout.count("snare") == 1
+    assert game.scene is SceneId.MAP

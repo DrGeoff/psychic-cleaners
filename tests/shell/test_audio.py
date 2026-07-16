@@ -1,5 +1,6 @@
 """Synthesized audio: waveform shape, byte lengths, graceful no-ops."""
 
+import pygame
 import pytest
 
 from psychic_cleaners.shell.audio import SAMPLE_RATE, AudioBank, synth_noise, synth_square
@@ -34,6 +35,20 @@ def test_play_music_loop_reuses_prebuilt_theme_sound() -> None:
     # play_music_loop must reuse the "theme" Sound built once in __init__,
     # not re-synthesize build_theme() a second time.
     assert bank._music is bank._sounds["theme"]
+
+
+def test_mixer_init_failure_degrades_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Distinct from "real audio playback is untestable": the degradation
+    # logic in AudioBank.__init__ (the bare `except pygame.error: return`)
+    # is itself fully testable by forcing pygame.mixer.init to raise, without
+    # depending on whether this machine actually has a mixer.
+    def _raise(*args: object, **kwargs: object) -> None:
+        raise pygame.error("no audio device")
+
+    monkeypatch.setattr(pygame.mixer, "init", _raise)
+    bank = AudioBank()  # must not raise despite mixer.init failing
+    assert bank._enabled is False
+    bank.play("trap")  # no-op, no exception
 
 
 def test_disabled_bank_play_is_noop() -> None:
