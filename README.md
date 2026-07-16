@@ -1,5 +1,8 @@
 # Psychic Cleaners
 
+[![Build Status](https://github.com/DrGeoff/psychic-cleaners/actions/workflows/ci.yml/badge.svg)](https://github.com/DrGeoff/psychic-cleaners/actions/workflows/ci.yml)
+[![Coverage](https://raw.githubusercontent.com/DrGeoff/psychic-cleaners/badges/coverage.svg)](https://github.com/DrGeoff/psychic-cleaners/actions/workflows/ci.yml)
+
 A clean-room [pygame-ce](https://pyga.me) homage to a 1984 Activision C64 classic about
 running a paranormal-removal franchise: buy a vehicle and gear, watch the city map, drive
 to hauntings, snare stain-ghosts between two beams, dodge a rampaging gummy mascot, and —

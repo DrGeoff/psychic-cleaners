@@ -2,11 +2,19 @@ name: CI
 
 on:
   push:
+    # The coverage badge is force-pushed to an orphan `badges` branch;
+    # exclude it so that push doesn't trigger a CI run on a source-less tree.
+    branches-ignore:
+      - badges
   pull_request:
 
 jobs:
   checks:
     runs-on: ubuntu-latest
+    permissions:
+      # Allow the built-in GITHUB_TOKEN to push the coverage badge to the
+      # `badges` branch (default token perms may be read-only).
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
@@ -24,4 +32,27 @@ jobs:
           SDL_AUDIODRIVER: dummy
         run: >-
           uv run pytest --cov=psychic_cleaners.core --cov-fail-under=90
-          --override-ini="addopts=--cov-report=term-missing"
+          --override-ini="addopts=--cov-report=term-missing --cov-report=xml"
+
+      - name: Coverage summary
+        run: |
+          echo '## Core coverage report' >> $GITHUB_STEP_SUMMARY
+          uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+
+      # Self-hosted coverage badge: generate the SVG locally (no third-party
+      # service) and force-push it to an orphan `badges` branch that the
+      # README links to via raw.githubusercontent.com. Main pushes only.
+      - name: Generate and publish coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          uv run --with "genbadge[coverage]" genbadge coverage -i coverage.xml -o coverage.svg
+          work="$(mktemp -d)"
+          cp coverage.svg "$work/coverage.svg"
+          cd "$work"
+          git init -q
+          git checkout -q -b badges
+          git add coverage.svg
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Update coverage badge"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges
