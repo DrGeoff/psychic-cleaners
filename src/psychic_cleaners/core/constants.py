@@ -9,6 +9,10 @@ VACUUM_BOUNTY: Final[int] = 100
 BUST_BASE_FEE: Final[int] = 300
 BUST_FEE_PER_1000_PSI: Final[int] = 100
 MAX_BANKROLL: Final[int] = 9_999_999
+RENT_PER_DAY: Final[int] = 250
+LOAN_MAX: Final[int] = 5_000
+LOAN_BORROW_INCREMENT: Final[int] = 1_000
+LOAN_INTEREST_RATE_PER_DAY: Final[float] = 0.05
 
 # psi
 # PER_REAL_MINUTE rates accrue per real-world minute, regardless of
@@ -21,6 +25,7 @@ STOMP_PSI_SPIKE: Final[int] = 500
 
 # time
 GAME_MINUTES_PER_REAL_SECOND: Final[float] = 1.0
+DAY_LENGTH_GAME_MINUTES: Final[float] = 90.0
 
 # cleaners
 CLEANER_COUNT: Final[int] = 3
