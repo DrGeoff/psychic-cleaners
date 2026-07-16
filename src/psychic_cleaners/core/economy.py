@@ -34,14 +34,17 @@ class Wallet:
         self.balance -= charged
         return charged
 
-    def profited_over(self, starting_balance: int) -> bool:
-        """True if strictly ahead of `starting_balance`, or pinned at the cap.
 
-        A wallet clamped at MAX_BANKROLL can never satisfy a strict ">"
-        against a starting balance that was itself at the cap, so sitting
-        at the cap counts as profitable too.
-        """
-        return self.balance > starting_balance or self.balance >= MAX_BANKROLL
+def net_worth_profited_over(balance: int, debt: int, starting_balance: int) -> bool:
+    """True if balance-minus-debt strictly exceeds starting_balance, or the
+    balance itself is pinned at MAX_BANKROLL.
+
+    A wallet clamped at MAX_BANKROLL can never satisfy a strict ">" against a
+    starting balance that was itself at the cap, so sitting at the cap counts
+    as profitable regardless of debt (mirrors the pre-existing
+    Wallet.profited_over cap edge case).
+    """
+    return balance - debt > starting_balance or balance >= MAX_BANKROLL
 
 
 def bust_fee(psi_value: int) -> int:

@@ -33,7 +33,7 @@ from psychic_cleaners.core.constants import (
 )
 from psychic_cleaners.core.convergence import Convergence
 from psychic_cleaners.core.drive import DriveSim
-from psychic_cleaners.core.economy import Wallet, bust_fee
+from psychic_cleaners.core.economy import Wallet, bust_fee, net_worth_profited_over
 from psychic_cleaners.core.events import (
     AccountAccepted,
     AccountRejected,
@@ -503,7 +503,7 @@ class Game:
         events.extend(self.finale.tick(dt_seconds))
         outcome = self.finale.outcome
         if outcome is FinaleOutcome.WON:
-            if self.wallet.profited_over(self.starting_bankroll):
+            if net_worth_profited_over(self.wallet.balance, 0, self.starting_bankroll):
                 code = encode_account(self.player_name, self.wallet.balance)
                 self.result = "won"
                 self.last_account_code = code
