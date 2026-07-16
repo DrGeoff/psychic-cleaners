@@ -3,7 +3,14 @@
 import pygame
 import pytest
 
-from psychic_cleaners.shell.audio import SAMPLE_RATE, AudioBank, synth_noise, synth_square
+from psychic_cleaners.shell.audio import (
+    SAMPLE_RATE,
+    AudioBank,
+    mix,
+    synth_noise,
+    synth_square,
+    synth_voice,
+)
 
 
 def _samples(raw: bytes) -> list[int]:
@@ -19,12 +26,59 @@ def test_noise_byte_length_and_reproducible() -> None:
     assert synth_noise(50) == synth_noise(50)
 
 
-def test_square_alternates_at_expected_period() -> None:
+def test_synth_voice_raw_square_alternates_at_expected_period() -> None:
     # 2205 Hz at 22050 Hz sample rate -> half-period of exactly 5 samples.
-    samples = _samples(synth_square(2205.0, 10))
+    # Envelope disabled (attack/decay/release=0, sustain=1.0) to isolate
+    # waveform shape from envelope shaping.
+    samples = _samples(
+        synth_voice("square", 2205.0, 10, attack_ms=0, decay_ms=0, release_ms=0, sustain=1.0)
+    )
     assert all(s > 0 for s in samples[0:5])
     assert all(s < 0 for s in samples[5:10])
     assert all(s > 0 for s in samples[10:15])
+
+
+def test_synth_voice_default_envelope_ramps_up_from_zero() -> None:
+    samples = _samples(synth_voice("square", 440.0, 100, 0.8, attack_ms=5))
+    assert samples[0] == 0
+    assert 0 < abs(samples[10]) < round(0.8 * 32767)
+
+
+def test_synth_voice_triangle_and_sawtooth_produce_distinct_shapes() -> None:
+    triangle = _samples(
+        synth_voice("triangle", 220.0, 20, attack_ms=0, decay_ms=0, release_ms=0, sustain=1.0)
+    )
+    sawtooth = _samples(
+        synth_voice("sawtooth", 220.0, 20, attack_ms=0, decay_ms=0, release_ms=0, sustain=1.0)
+    )
+    assert triangle != sawtooth
+    assert max(triangle) > 0 and min(triangle) < 0
+    assert max(sawtooth) > 0 and min(sawtooth) < 0
+
+
+def test_synth_square_and_synth_noise_are_synth_voice_wrappers() -> None:
+    assert len(synth_square(440.0, 100)) == round(100 / 1000 * SAMPLE_RATE) * 2
+    assert len(synth_noise(50)) == round(50 / 1000 * SAMPLE_RATE) * 2
+    assert synth_noise(50) == synth_noise(50)  # still reproducible (seeded)
+
+
+def test_mix_sums_and_clamps_to_int16_range() -> None:
+    a = synth_voice("square", 440.0, 10, 1.0, attack_ms=0, decay_ms=0, release_ms=0, sustain=1.0)
+    b = synth_voice("square", 440.0, 10, 1.0, attack_ms=0, decay_ms=0, release_ms=0, sustain=1.0)
+    mixed = _samples(mix(a, b))
+    # Two identical full-amplitude voices summed must clamp, never wrap around.
+    assert all(s in (32767, -32768) for s in mixed)
+
+
+def test_mix_pads_shorter_voice_with_silence() -> None:
+    long_voice = synth_voice(
+        "square", 440.0, 20, 1.0, attack_ms=0, decay_ms=0, release_ms=0, sustain=1.0
+    )
+    short_voice = synth_voice(
+        "square", 440.0, 10, 1.0, attack_ms=0, decay_ms=0, release_ms=0, sustain=1.0
+    )
+    mixed = mix(long_voice, short_voice)
+    assert len(mixed) == len(long_voice)
 
 
 def test_play_music_loop_reuses_prebuilt_theme_sound() -> None:

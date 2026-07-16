@@ -2,7 +2,7 @@
 
 import random
 from collections.abc import Callable
-from typing import Final
+from typing import Final, Literal
 
 import pygame
 
@@ -14,25 +14,99 @@ def _sample_count(ms: int) -> int:
     return round(ms / 1000 * SAMPLE_RATE)
 
 
-def synth_square(freq: float, ms: int, volume: float = 0.5) -> bytes:
-    """Raw 16-bit signed little-endian mono square wave at SAMPLE_RATE."""
-    amplitude = int(volume * _MAX_AMPLITUDE)
+Waveform = Literal["square", "triangle", "sawtooth", "noise"]
+
+
+def _wave_sample(wave: Waveform, phase: float, rng: random.Random | None) -> float:
+    """Raw waveform value in [-1.0, 1.0] at the given phase (cycles, not radians)."""
+    if wave == "square":
+        return 1.0 if (phase % 1.0) < 0.5 else -1.0
+    if wave == "triangle":
+        p = phase % 1.0
+        return 4.0 * abs(p - 0.5) - 1.0
+    if wave == "sawtooth":
+        p = phase % 1.0
+        return 2.0 * p - 1.0
+    assert rng is not None  # wave == "noise"
+    return rng.uniform(-1.0, 1.0)
+
+
+def _envelope_gain(
+    i: int, total: int, attack: int, decay: int, sustain: float, release: int
+) -> float:
+    """Linear attack -> linear decay to sustain -> hold -> linear release.
+
+    When attack/decay/release are 0, their trigger conditions (i < 0, etc.)
+    are never true for i >= 0, so those stages are skipped naturally —
+    no zero-length-window special-casing needed, and no division by zero.
+    """
+    if i < attack:
+        return i / attack
+    if i < attack + decay:
+        d = i - attack
+        return 1.0 - (1.0 - sustain) * (d / decay)
+    release_start = total - release
+    if i >= release_start:
+        r = i - release_start
+        return sustain * (1.0 - r / release)
+    return sustain
+
+
+def synth_voice(
+    wave: Waveform,
+    freq: float,
+    ms: int,
+    volume: float = 0.5,
+    *,
+    attack_ms: int = 5,
+    decay_ms: int = 10,
+    sustain: float = 0.7,
+    release_ms: int = 15,
+) -> bytes:
+    """Raw 16-bit signed little-endian mono voice, envelope-shaped."""
+    total = _sample_count(ms)
+    attack = _sample_count(attack_ms)
+    decay = _sample_count(decay_ms)
+    release = _sample_count(release_ms)
+    rng = random.Random(0) if wave == "noise" else None
     out = bytearray()
-    for i in range(_sample_count(ms)):
-        high = int(i * 2.0 * freq / SAMPLE_RATE) % 2 == 0
-        sample = amplitude if high else -amplitude
+    for i in range(total):
+        raw = _wave_sample(wave, i * freq / SAMPLE_RATE, rng)
+        gain = _envelope_gain(i, total, attack, decay, sustain, release)
+        sample = int(raw * gain * volume * _MAX_AMPLITUDE)
+        sample = max(-_MAX_AMPLITUDE - 1, min(_MAX_AMPLITUDE, sample))
         out += sample.to_bytes(2, "little", signed=True)
     return bytes(out)
 
 
+def mix(*voices: bytes) -> bytes:
+    """Sum simultaneous voices sample-by-sample, clamped to int16 range.
+
+    Shorter voices are zero-padded to the longest voice's length.
+    """
+    if not voices:
+        return b""
+    sample_lists = [
+        [int.from_bytes(v[i : i + 2], "little", signed=True) for i in range(0, len(v), 2)]
+        for v in voices
+    ]
+    total = max(len(s) for s in sample_lists)
+    out = bytearray()
+    for i in range(total):
+        total_sample = sum(s[i] for s in sample_lists if i < len(s))
+        clamped = max(-_MAX_AMPLITUDE - 1, min(_MAX_AMPLITUDE, total_sample))
+        out += clamped.to_bytes(2, "little", signed=True)
+    return bytes(out)
+
+
+def synth_square(freq: float, ms: int, volume: float = 0.5) -> bytes:
+    """Raw 16-bit signed little-endian mono square wave, envelope-shaped."""
+    return synth_voice("square", freq, ms, volume)
+
+
 def synth_noise(ms: int, volume: float = 0.5) -> bytes:
     """Raw 16-bit signed little-endian mono white noise, seeded for reproducibility."""
-    amplitude = int(volume * _MAX_AMPLITUDE)
-    rng = random.Random(0)
-    out = bytearray()
-    for _ in range(_sample_count(ms)):
-        out += rng.randint(-amplitude, amplitude).to_bytes(2, "little", signed=True)
-    return bytes(out)
+    return synth_voice("noise", 0.0, ms, volume)
 
 
 def _seq(*parts: bytes) -> bytes:
