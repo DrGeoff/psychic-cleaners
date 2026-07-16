@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from psychic_cleaners.core.constants import (
     BEAM_AIM_SPREAD,
     BEAM_CROSS_GHOST_Y,
+    BEAM_MAX_GAIN,
     BEAM_MAX_TILT,
+    BEAM_NARROW_START_Y,
     BEAM_TOP_Y,
     BUST_GROUND_Y,
     BUST_MAX_X,
@@ -91,10 +93,38 @@ class BustSim:
         # smaller of the two placed x's) aims left of ghost_x, the RIGHT aims
         # right of it — so the two tips never converge to one point (the
         # forbidden "crossed streams" look) even when the ghost sits dead
-        # centre between the cleaners.
-        aim = self.ghost_x - BEAM_AIM_SPREAD if x <= other_x else self.ghost_x + BEAM_AIM_SPREAD
-        tilt = clamp(aim - x, -BEAM_MAX_TILT, BEAM_MAX_TILT)
+        # centre between the cleaners, AS LONG AS the tracking gain stays at
+        # its baseline of 1.0 (proven: docs/superpowers/specs/2026-07-16-
+        # beam-crossing-backfire-design.md). Past BEAM_NARROW_START_Y the gain
+        # ramps up with depth, which CAN let the tips invert for a
+        # narrow-enough gap and an off-center ghost — that's the intended,
+        # now-reachable "crossing the streams" backfire.
+        side_sign = -1.0 if x <= other_x else 1.0
+        tilt = clamp(
+            self._tilt_gain() * (self.ghost_x - x) + side_sign * BEAM_AIM_SPREAD,
+            -BEAM_MAX_TILT,
+            BEAM_MAX_TILT,
+        )
         return ((x, BUST_GROUND_Y), (x + tilt, BEAM_TOP_Y))
+
+    def _tilt_gain(self) -> float:
+        """1.0 at/above BEAM_NARROW_START_Y-depth-or-shallower, ramping
+        linearly to BEAM_MAX_GAIN by BUST_GROUND_Y. Gain only applies when
+        the ghost is between the cleaners; otherwise remains at 1.0 to preserve
+        baseline beam geometry for out-of-pair ghosts."""
+        left_x = self.left_x
+        right_x = self.right_x
+        if left_x is not None and right_x is not None:
+            is_between = min(left_x, right_x) < self.ghost_x < max(left_x, right_x)
+            if not is_between:
+                return 1.0
+
+        t = clamp(
+            (self.ghost_y - BEAM_NARROW_START_Y) / (BUST_GROUND_Y - BEAM_NARROW_START_Y),
+            0.0,
+            1.0,
+        )
+        return 1.0 + (BEAM_MAX_GAIN - 1.0) * t
 
     def tick(self, dt_seconds: float, rng: Rng) -> list[Event]:
         left_x = self.left_x
@@ -119,14 +149,18 @@ class BustSim:
         # (ghost_y >= BEAM_CROSS_GHOST_Y), so both beams angle steeply down at
         # it and cross behind it. (b) is the reachable, player-caused hazard:
         # SNARE_TRIGGER_Y (280) < BEAM_CROSS_GHOST_Y (320) leaves a 40px skill
-        # window where the ghost is springable but not yet backfiring.
+        # window where the ghost is springable but not yet backfiring. However,
+        # a wide-enough cleaner gap (~300px) provides placement-based immunity
+        # even at maximum depth: the beams' clamped geometry prevents crossing.
         beams = self.beam_endpoints()
         beams_cross = beams is not None and segments_cross(
             beams[0][0], beams[0][1], beams[1][0], beams[1][1]
         )
+        gap = max(left_x, right_x) - min(left_x, right_x)
         sunk_between = (
             min(left_x, right_x) < self.ghost_x < max(left_x, right_x)
             and self.ghost_y >= BEAM_CROSS_GHOST_Y
+            and gap < 300.0  # Wide gaps provide placement immunity
         )
         if beams_cross or sunk_between:
             self.outcome = BustOutcome.BACKFIRE

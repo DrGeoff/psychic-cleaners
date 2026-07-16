@@ -7,6 +7,7 @@ from psychic_cleaners.core.constants import (
     BEAM_AIM_SPREAD,
     BEAM_CROSS_GHOST_Y,
     BEAM_MAX_TILT,
+    BEAM_NARROW_START_Y,
     BEAM_TOP_Y,
     BUST_GROUND_Y,
     BUST_MAX_X,
@@ -196,6 +197,53 @@ def test_no_backfire_when_low_ghost_is_outside_the_pair() -> None:
     sim.ghost_x = 100.0  # left of BOTH cleaners: the beams tilt the same way
     sim.ghost_y = BEAM_CROSS_GHOST_Y + 10.0
     assert sim.tick(1e-6, make_rng(7)) == []
+    assert sim.outcome is None
+    assert sim.phase is BustPhase.ACTIVE
+
+
+def test_beams_cross_fires_independently_of_sunk_between() -> None:
+    # gap=240 (today's standard test fixture), ghost dead-centered, ghost_y=300
+    # is INSIDE the existing 40px "skill window" (280-320) where sunk_between
+    # cannot fire (its own threshold is ghost_y >= BEAM_CROSS_GHOST_Y == 320).
+    # At this ghost_y the tilt gain is 1.25 (ramping from 1.0 at 280 to
+    # BEAM_MAX_GAIN=2.0 at 360), which is already enough to saturate both
+    # beams' tilts in opposite directions and produce a genuine ~40px
+    # crossing margin — verified by direct computation, not a floating-point
+    # tie. This is the mechanism's core deliverable: a reachable cross that
+    # sunk_between's own condition cannot explain.
+    sim = _active_sim(left=200.0, right=440.0)
+    sim.ghost_x = 320.0
+    sim.ghost_y = 300.0
+    assert sim.ghost_y < BEAM_CROSS_GHOST_Y  # sunk_between's threshold: confirms isolation
+    events = sim.tick(1e-6, make_rng(7))
+    assert events == [BeamsCrossed()]
+    assert sim.outcome is BustOutcome.BACKFIRE
+    assert sim.phase is BustPhase.RESOLVED
+
+
+def test_gain_stays_at_one_below_narrow_start_y() -> None:
+    # Regression guard: at ghost_y exactly BEAM_NARROW_START_Y, gain must
+    # still be 1.0 (today's baseline formula), for the same gap/ghost_x that
+    # crosses just 20px deeper in test_beams_cross_fires_independently_of_sunk_between.
+    sim = _active_sim(left=200.0, right=440.0)
+    sim.ghost_x = 320.0
+    sim.ghost_y = BEAM_NARROW_START_Y  # 280.0
+    events = sim.tick(1e-6, make_rng(7))
+    assert events == []
+    assert sim.outcome is None
+    assert sim.phase is BustPhase.ACTIVE
+
+
+def test_wide_gap_stays_safe_through_full_narrowing() -> None:
+    # A 320px gap (well past the ~300px immunity boundary) stays safe even
+    # at BUST_GROUND_Y, where gain reaches its maximum (BEAM_MAX_GAIN).
+    # Proves the placement-immunity property end to end: wide-enough
+    # placement fully neutralizes the new risk regardless of waiting.
+    sim = _active_sim(left=140.0, right=460.0)
+    sim.ghost_x = 320.0
+    sim.ghost_y = BUST_GROUND_Y
+    events = sim.tick(1e-6, make_rng(7))
+    assert events == []
     assert sim.outcome is None
     assert sim.phase is BustPhase.ACTIVE
 
