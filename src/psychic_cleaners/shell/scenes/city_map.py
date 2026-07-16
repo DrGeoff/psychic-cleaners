@@ -39,6 +39,7 @@ class CityMapScene:
 
     def __init__(self) -> None:
         self.cursor: GridPos = DEPOT_POS
+        self._flash_elapsed: float = 0.0
 
     def reset(self) -> None:
         """Return the cursor to the Depot.
@@ -48,10 +49,12 @@ class CityMapScene:
         previous game left it.
         """
         self.cursor = DEPOT_POS
+        self._flash_elapsed = 0.0
 
     def commands(
         self, events: list[pygame.event.Event], game: Game, dt_seconds: float
     ) -> list[Command]:
+        self._flash_elapsed += dt_seconds
         commands: list[Command] = []
         for event in events:
             if event.type != pygame.KEYDOWN:
@@ -82,7 +85,9 @@ class CityMapScene:
     ) -> None:
         surface.fill((24, 26, 34))
         detector = game.loadout is not None and game.loadout.has("detector")
-        flash = int(pygame.time.get_ticks() / 250) % 2 == 0  # ~2 Hz toggle
+        # Driven by simulated dt (not pygame.time.get_ticks()) so this stays
+        # deterministic under fast-forwarded or injected dt.
+        flash = int(self._flash_elapsed / 0.25) % 2 == 0  # ~2 Hz toggle
         for pos, building in game.city.buildings.items():
             if not building.haunted:
                 name = "building"

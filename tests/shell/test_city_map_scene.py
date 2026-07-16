@@ -1,6 +1,7 @@
 """Cursor handling and draw smoke test for the city map scene."""
 
 import pygame
+import pytest
 
 from psychic_cleaners.core.catalog import VEHICLES
 from psychic_cleaners.core.city import Wisp
@@ -96,6 +97,45 @@ def test_draw_smoke_with_detector_shows_wisps() -> None:
     surface = pygame.Surface((640, 400))
     scene.draw(surface, game, SpriteFactory(), TextRenderer())
     assert surface.get_at((320, 180)) != (24, 26, 34, 255)  # type: ignore[comparison-overlap]
+
+
+def test_haunted_flash_is_driven_by_simulated_time_not_wall_clock() -> None:
+    # Regression: the flash used to read pygame.time.get_ticks() (real
+    # wall-clock), making it non-deterministic under fast-forwarded or
+    # injected dt (e.g. a screenshot taken via the playtest harness could
+    # land on either phase depending on real execution speed, not seed or
+    # game state). It must depend only on time accumulated via commands().
+    pygame.init()
+    pygame.display.set_mode((640, 400))
+    scene = CityMapScene()
+    game = new_game(9)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])
+    game.loadout.add("detector")
+    game.scene = SceneId.MAP
+    game.city.buildings[(2, 2)].haunted = True
+    sample = (180, 152)  # inside building (2,2)'s middle window row
+    surface = pygame.Surface((640, 400))
+
+    scene.commands([], game, 0.0)  # elapsed stays 0 -> flash on
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())
+    on_pixel = surface.get_at(sample)
+
+    scene.commands([], game, 0.25)  # elapsed=0.25 -> exactly one half-period -> flash off
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())
+    off_pixel = surface.get_at(sample)
+
+    assert on_pixel != off_pixel
+    assert on_pixel[:3] == (215, 140, 255)  # haunted window color while "on"
+    assert off_pixel[:3] == (225, 210, 140)  # normal window color while "off"
+
+
+def test_flash_elapsed_resets_on_scene_reset() -> None:
+    scene = CityMapScene()
+    game = new_game(10)
+    scene.commands([], game, 0.5)
+    assert scene._flash_elapsed == pytest.approx(0.5)
+    scene.reset()
+    assert scene._flash_elapsed == 0.0
 
 
 def test_car_marker_visible_when_parked_at_depot() -> None:

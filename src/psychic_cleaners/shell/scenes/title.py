@@ -25,9 +25,14 @@ KARAOKE_WORDS: Final[tuple[str, ...]] = (
 )
 
 
-def _draw_karaoke(surface: pygame.Surface, text: TextRenderer) -> None:
-    """Bouncing-ball lyric line — pure presentation, no game state."""
-    ball_index = int(pygame.time.get_ticks() / 500) % len(KARAOKE_WORDS)
+def _draw_karaoke(surface: pygame.Surface, text: TextRenderer, elapsed: float) -> None:
+    """Bouncing-ball lyric line — pure presentation, no game state.
+
+    `elapsed` is simulated seconds accumulated from dt, not wall-clock time:
+    real time would make this (and any screenshot of it) non-deterministic
+    under fast-forwarded or injected dt.
+    """
+    ball_index = int(elapsed / 0.5) % len(KARAOKE_WORDS)
     x = 48
     y = 330
     for i, word in enumerate(KARAOKE_WORDS):
@@ -53,10 +58,12 @@ class TitleScene:
         self._name: str = ""
         self._code: str = ""
         self._focus: _Field = _Field.NAME
+        self._elapsed: float = 0.0
 
     def commands(
         self, events: list[pygame.event.Event], game: Game, dt_seconds: float
     ) -> list[Command]:
+        self._elapsed += dt_seconds
         out: list[Command] = []
         for event in events:
             if event.type == pygame.TEXTINPUT:
@@ -87,6 +94,7 @@ class TitleScene:
         self._name = ""
         self._code = ""
         self._focus = _Field.NAME
+        self._elapsed = 0.0
 
     def _append(self, text: str) -> None:
         printable = "".join(ch for ch in text if ch.isprintable())
@@ -117,7 +125,7 @@ class TitleScene:
             size=14,
             color=(160, 160, 190),
         )
-        _draw_karaoke(surface, text)
+        _draw_karaoke(surface, text, self._elapsed)
 
     def _draw_field(
         self,

@@ -1,12 +1,13 @@
 """TitleScene: text entry, focus handling, command emission, draw smoke test."""
 
 import pygame
+import pytest
 
 from psychic_cleaners.core.events import EnterAccount, NewGame, SceneId
 from psychic_cleaners.core.game import Game, new_game
 from psychic_cleaners.shell.app import LOGICAL_SIZE, SCENES
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes.title import TitleScene, _Field
+from psychic_cleaners.shell.scenes.title import TitleScene, _draw_karaoke, _Field
 from psychic_cleaners.shell.text import TextRenderer
 
 
@@ -137,6 +138,30 @@ def test_draw_smoke() -> None:
 
 def test_registry_uses_title_scene() -> None:
     assert isinstance(SCENES[SceneId.TITLE], TitleScene)
+
+
+def test_karaoke_ball_advances_with_simulated_elapsed_time() -> None:
+    # Regression: the ball used to read pygame.time.get_ticks() (real
+    # wall-clock), making its position non-deterministic under fast-
+    # forwarded/injected dt. It must depend only on the elapsed value passed
+    # in, not on how much real time has actually passed.
+    pygame.init()
+    text = TextRenderer()
+    surface1 = pygame.Surface(LOGICAL_SIZE)
+    surface2 = pygame.Surface(LOGICAL_SIZE)
+    _draw_karaoke(surface1, text, 0.0)
+    _draw_karaoke(surface2, text, 0.5)  # one full ~500ms period later -> next word
+    assert pygame.image.tobytes(surface1, "RGB") != pygame.image.tobytes(surface2, "RGB")
+
+
+def test_title_scene_accumulates_elapsed_time_via_commands() -> None:
+    scene = TitleScene()
+    assert scene._elapsed == 0.0
+    scene.commands([], _game(), 0.3)
+    scene.commands([], _game(), 0.2)
+    assert scene._elapsed == pytest.approx(0.5)
+    scene.reset()
+    assert scene._elapsed == 0.0
 
 
 def test_app_clears_title_fields_on_game_over_continue() -> None:
