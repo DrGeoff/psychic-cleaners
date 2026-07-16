@@ -133,13 +133,16 @@ dynamics move it continuously and rarely land it exactly centered.
 
 - The existing test fixture convention (`left_x=200, right_x=440`, gap
   240px) sits inside the newly-reachable zone once gain exceeds 1 for an
-  off-center ghost. `tests/core/test_bust.py::test_no_backfire_in_skill_window`
-  runs a ghost near-centered at `ghost_y=300` (inside the new narrowing
-  band) — this must be explicitly re-run and, if it starts crossing,
-  either judged as an intended new risk (update the test) or used as a
-  signal that `BEAM_MAX_GAIN`/`BEAM_NARROW_START_Y` need to be gentler.
-  This is an implementation-time verification step, not resolved by hand
-  math alone.
+  off-center ghost. Direct computation (not just hand algebra) confirmed
+  `tests/core/test_bust.py::test_no_backfire_in_skill_window`'s exact
+  scenario (ghost centered at 320, `ghost_y=300`) crosses at `gain=1.25` —
+  a genuine ~40px margin, not a floating-point tie. **Decided:** keep
+  `BEAM_NARROW_START_Y = SNARE_TRIGGER_Y` as specified; this is an accepted,
+  intentional difficulty increase for the standard 240px gap, not a
+  regression to avoid. `test_no_backfire_in_skill_window` is replaced by two
+  tests — one at the standard gap documenting the new risk, one at a wide
+  (≥300px) gap preserving the original safe-window story, conditioned on
+  placement.
 - New unit tests in `test_bust.py`:
   - `gain == 1.0` (`ghost_y <= BEAM_NARROW_START_Y`) never crosses, for a
     range of placements — regression guard matching today's proven-safe
@@ -160,6 +163,6 @@ dynamics move it continuously and rarely land it exactly centered.
 - `BEAM_MAX_GAIN=2.0` and `BEAM_NARROW_START_Y=SNARE_TRIGGER_Y` are
   reasoned starting values, not final. Real playtesting (per this project's
   established practice — see `bdc4a75`) may adjust them.
-- Whether `test_no_backfire_in_skill_window`'s specific scenario should stay
-  backfire-free or become a new risk is an open call to make once the
-  implementation is in front of the actual test suite, not before.
+- Resolved (see §6): `test_no_backfire_in_skill_window`'s scenario
+  intentionally becomes a new risk at the standard gap; it does not stay
+  backfire-free.
