@@ -193,6 +193,17 @@ class Game:
                 self._change_scene(SceneId.GAME_OVER, events)
         if scene is SceneId.FINALE:
             events.extend(self._tick_finale(dt_seconds))
+        if self.rent_bankrupt:
+            # rent_bankrupt is scoped to the tick that set it (see the field's
+            # own comment: "consumed and cleared in tick()"). Normally the
+            # elif above consumes it, but the snare-fold branch can take
+            # priority in the same tick (both conditions true at once), or a
+            # same-tick scene change can move play out of _WORLD_SCENES
+            # before that elif runs. Either way, the day that caused this
+            # flag is over by the time we get here, so drop it unconditionally
+            # rather than let it survive into a future tick where its cause
+            # no longer applies.
+            self.rent_bankrupt = False
         return events
 
     def _world_tick(self, dt_seconds: float) -> list[Event]:

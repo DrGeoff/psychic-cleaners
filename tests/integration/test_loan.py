@@ -68,6 +68,23 @@ def test_unpayable_rent_folds_the_franchise() -> None:
     assert game.lose_reason == "rent due, can't pay — the franchise folds"
 
 
+def test_rent_bankrupt_does_not_leak_past_a_tick_preempted_by_snare_fold() -> None:
+    # Regression: when a day's unpaid rent AND an unfieldable snare both
+    # become true in the same tick, the snare-fold branch in Game.tick takes
+    # priority over the rent_bankrupt elif, so rent_bankrupt used to survive
+    # the tick unset. Harmless in practice (GAME_OVER -> Continue -> _reset()
+    # clears it) but violates the field's own "consumed and cleared in
+    # tick()" comment. Confirm tick() now clears it defensively regardless.
+    game = new_game(14)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])  # no snare added
+    game.scene = SceneId.MAP
+    game.wallet.balance = 0  # can't afford rent, and can't afford a snare
+    events = game.tick([], DAY_LENGTH_GAME_MINUTES)
+    assert GameLost("no snares left — the franchise folds") in events
+    assert game.scene is SceneId.GAME_OVER
+    assert game.rent_bankrupt is False
+
+
 def test_take_loan_at_depot_adds_cash_and_debt() -> None:
     game = _map_game(5)  # starts at the Depot
     balance_before = game.wallet.balance
@@ -117,6 +134,32 @@ def test_repay_loan_rejected_with_no_debt() -> None:
     game = _map_game(10)
     events = game.tick([RepayLoan()], 0.0)
     assert CommandRejected("no debt to repay") in events
+
+
+def test_repay_loan_rejected_when_cash_too_short() -> None:
+    # Reachable in normal play: borrow, spend most of it elsewhere, then try
+    # to repay with less cash on hand than min(LOAN_BORROW_INCREMENT, debt).
+    # Wallet.spend never lets balance go negative, so the repay attempt must
+    # be flatly rejected rather than partially applied.
+    game = _map_game(16)
+    game.debt = LOAN_BORROW_INCREMENT
+    game.wallet.balance = LOAN_BORROW_INCREMENT - 1  # one dollar short
+    debt_before = game.debt
+    balance_before = game.wallet.balance
+    events = game.tick([RepayLoan()], 0.0)
+    assert CommandRejected("cannot afford repayment") in events
+    assert game.debt == debt_before
+    assert game.wallet.balance == balance_before
+
+
+def test_take_loan_allowed_exactly_at_the_cap() -> None:
+    game = _map_game(17)  # starts at the Depot
+    game.debt = LOAN_MAX - LOAN_BORROW_INCREMENT
+    balance_before = game.wallet.balance
+    events = game.tick([TakeLoan()], 0.0)
+    assert game.debt == LOAN_MAX
+    assert game.wallet.balance == balance_before + LOAN_BORROW_INCREMENT
+    assert LoanTaken(LOAN_BORROW_INCREMENT) in events
 
 
 def test_debt_accrues_interest_on_day_rollover() -> None:
