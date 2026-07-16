@@ -5,9 +5,9 @@ import pytest
 
 from psychic_cleaners.core.catalog import VEHICLES
 from psychic_cleaners.core.city import Wisp
-from psychic_cleaners.core.constants import DEPOT_POS
+from psychic_cleaners.core.constants import DEPOT_POS, LOAN_BORROW_INCREMENT
 from psychic_cleaners.core.convergence import Convergence
-from psychic_cleaners.core.events import BuyItem, SceneId, SetDestination
+from psychic_cleaners.core.events import BuyItem, RepayLoan, SceneId, SetDestination, TakeLoan
 from psychic_cleaners.core.game import new_game
 from psychic_cleaners.core.loadout import Loadout
 from psychic_cleaners.shell.gfx import SpriteFactory
@@ -245,3 +245,33 @@ def test_notice_still_takes_the_row_over_the_control_hint() -> None:
     scene.draw(surface, game, SpriteFactory(), TextRenderer())
     row = pygame.Rect(10, _HUD_Y + 32, 300, 400 - (_HUD_Y + 32))
     assert _row_has_content(surface, row)  # unchanged: the notice, not the hint, fills the row
+
+
+def test_l_emits_take_loan() -> None:
+    pygame.init()
+    scene = CityMapScene()
+    game = new_game(11)
+    commands = scene.commands([_key(pygame.K_l)], game, 1 / 60)
+    assert commands == [TakeLoan()]
+
+
+def test_p_emits_repay_loan() -> None:
+    pygame.init()
+    scene = CityMapScene()
+    game = new_game(12)
+    commands = scene.commands([_key(pygame.K_p)], game, 1 / 60)
+    assert commands == [RepayLoan()]
+
+
+def test_hud_shows_debt_when_outstanding() -> None:
+    pygame.init()
+    pygame.display.set_mode((640, 400))
+    scene = CityMapScene()
+    game = new_game(13)
+    game.loadout = Loadout(vehicle=VEHICLES["hearse"])
+    game.scene = SceneId.MAP
+    game.debt = LOAN_BORROW_INCREMENT
+    surface = pygame.Surface((640, 400))
+    scene.draw(surface, game, SpriteFactory(), TextRenderer())  # smoke: must not raise
+    row = pygame.Rect(10, _HUD_Y + 4, 220, 14)
+    assert _row_has_content(surface, row)  # balance + debt text occupies the row

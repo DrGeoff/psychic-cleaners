@@ -10,7 +10,15 @@ from psychic_cleaners.core.constants import (
     PSI_MAX,
     TOWER_POS,
 )
-from psychic_cleaners.core.events import BuyItem, Command, DeployBait, GridPos, SetDestination
+from psychic_cleaners.core.events import (
+    BuyItem,
+    Command,
+    DeployBait,
+    GridPos,
+    RepayLoan,
+    SetDestination,
+    TakeLoan,
+)
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
 from psychic_cleaners.shell.scenes import _NOTICE_RED, _draw_mascot_banner
@@ -74,6 +82,10 @@ class CityMapScene:
                 commands.append(DeployBait())
             elif event.key == pygame.K_s:
                 commands.append(BuyItem("snare"))
+            elif event.key == pygame.K_l:
+                commands.append(TakeLoan())
+            elif event.key == pygame.K_p:
+                commands.append(RepayLoan())
         return commands
 
     def draw(
@@ -137,7 +149,10 @@ class CityMapScene:
 
     def _draw_hud(self, surface: pygame.Surface, game: Game, text: TextRenderer) -> None:
         pygame.draw.rect(surface, (12, 12, 18), pygame.Rect(0, _HUD_Y, 640, 400 - _HUD_Y))
-        text.draw(surface, f"${game.wallet.balance}", (10, _HUD_Y + 4), size=16)
+        balance_text = f"${game.wallet.balance}"
+        if game.debt > 0:
+            balance_text += f"  debt ${game.debt}"
+        text.draw(surface, balance_text, (10, _HUD_Y + 4), size=16)
         text.draw(surface, f"PSI {game.psi.value:>4}", (10, _HUD_Y + 18), size=16)
         bar = pygame.Rect(90, _HUD_Y + 20, 120, 10)
         pygame.draw.rect(surface, (60, 60, 70), bar)
@@ -148,8 +163,8 @@ class CityMapScene:
         text.draw(surface, f"contained {game.contained}", (240, _HUD_Y + 18), size=16)
         text.draw(surface, f"slimed {len(game.slimed)}", (430, _HUD_Y + 4), size=16)
         if game.position == DEPOT_POS:
-            hint = f"S: buy snare (${ITEMS['snare'].price})"
-            text.draw(surface, hint, (430, _HUD_Y + 18), size=16)
+            hint = f"S: snare (${ITEMS['snare'].price}) L: loan P: repay"
+            text.draw(surface, hint, (300, _HUD_Y + 18), size=14)
         if game.notice is not None:
             text.draw(surface, game.notice, (10, _HUD_Y + 32), size=16, color=_NOTICE_RED)
         else:
