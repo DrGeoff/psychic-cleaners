@@ -425,8 +425,9 @@ class Game:
             return self._reject("choose a vehicle first", PurchaseRejected)
         if not self.wallet.can_afford(item.price):
             return self._reject("cannot afford", PurchaseRejected)
-        if not self.loadout.can_add(item_id):
-            return self._reject("no room in vehicle", PurchaseRejected)
+        blocker = self.loadout.add_blocker(item_id)
+        if blocker is not None:
+            return self._reject(blocker, PurchaseRejected)
         self.wallet.spend(item.price)
         self.loadout.add(item_id)
         self._clear_notice()

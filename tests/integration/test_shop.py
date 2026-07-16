@@ -104,6 +104,22 @@ def test_performance_purchase_wires_speed_into_play() -> None:
     assert game.drive.speed == 200.0  # performance's catalog speed
 
 
+def test_duplicate_nonstackable_item_with_free_slots_reports_already_owned() -> None:
+    # Loadout.add_blocker distinguishes "already own this" from "no room":
+    # a second detector must be rejected as "item already owned", not the
+    # misleading "no room in vehicle", even on a hearse with 8 of 9 slots
+    # still free.
+    game = _shop_game()
+    game.tick([SelectVehicle("hearse")], 0.0)  # capacity 9
+    events = game.tick([BuyItem("detector")], 0.0)
+    assert ItemBought("detector") in events
+    assert game.loadout is not None
+    assert game.loadout.slots_used() == 1  # 8 slots still free
+    events = game.tick([BuyItem("detector")], 0.0)
+    assert PurchaseRejected("item already owned") in events
+    assert game.loadout.count("detector") == 1
+
+
 def test_unaffordable_vehicle_rejected() -> None:
     game = _shop_game()
     events = game.tick([SelectVehicle("performance")], 0.0)  # 15000 > 10000

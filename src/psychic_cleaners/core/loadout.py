@@ -19,10 +19,21 @@ class Loadout:
         return sum(ITEMS[item_id].slots * n for item_id, n in self.counts.items())
 
     def can_add(self, item_id: str) -> bool:
+        return self.add_blocker(item_id) is None
+
+    def add_blocker(self, item_id: str) -> str | None:
+        """Reason adding item_id would be rejected, or None if it's allowed.
+
+        The two failure modes are distinct and must not be collapsed into
+        one message: a non-stackable item already owned is rejected
+        regardless of free capacity, so it's checked and reported first.
+        """
         item = ITEMS[item_id]
         if item_id not in _STACKABLE and self.count(item_id) > 0:
-            return False
-        return self.slots_used() + item.slots <= self.vehicle.capacity
+            return "item already owned"
+        if self.slots_used() + item.slots > self.vehicle.capacity:
+            return "no room in vehicle"
+        return None
 
     def add(self, item_id: str) -> None:
         if not self.can_add(item_id):
