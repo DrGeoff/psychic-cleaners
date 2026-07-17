@@ -1,8 +1,9 @@
 name: Publish to PyPI
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -25,8 +26,8 @@ jobs:
       url: https://pypi.org/p/psychic-cleaners
     permissions:
       # Required for PyPI Trusted Publishing (OIDC) -- no API token stored
-      # anywhere. Configure a "pending publisher" for this repo/workflow at
-      # https://pypi.org/manage/account/publishing/ before the first release.
+      # anywhere. Publisher is configured at
+      # https://pypi.org/manage/project/psychic-cleaners/settings/publishing/
       id-token: write
     steps:
       - uses: actions/download-artifact@v4
