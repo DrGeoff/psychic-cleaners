@@ -31,16 +31,25 @@ than the running game.
 
 ## Install
 
-Requires Python >= 3.14 and [uv](https://docs.astral.sh/uv/).
+Requires Python >= 3.14.
 
-    uv sync
+    pip install psychic-cleaners
 
 ## Play
 
-    uv run psychic-cleaners
+    psychic-cleaners
 
 Win condition: end the finale with a bankroll strictly greater than the one you started
 with. Your account code carries the bankroll into the next game.
+
+## Developing from a clone
+
+Requires [uv](https://docs.astral.sh/uv/).
+
+    git clone https://github.com/DrGeoff/psychic-cleaners.git
+    cd psychic-cleaners
+    uv sync
+    uv run psychic-cleaners
 
 ## Controls
 
