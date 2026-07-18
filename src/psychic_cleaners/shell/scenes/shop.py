@@ -90,6 +90,9 @@ class ShopScene:
             text.draw(surface, f"${row.price}", (_PRICE_X, y), size=16, color=color)
             if suffix:
                 text.draw(surface, suffix, (_SUFFIX_X, y), size=16, color=color)
+        text.draw(
+            surface, _ROWS[self.cursor].description, (24, 338), size=14, color=(190, 190, 220)
+        )
         text.draw(surface, _CONTROL_HINT, (24, 356), size=16)
         if game.notice is not None:
             text.draw(surface, game.notice, (24, 376), size=16, color=_NOTICE_RED)
