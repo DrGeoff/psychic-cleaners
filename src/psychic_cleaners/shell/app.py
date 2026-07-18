@@ -134,6 +134,7 @@ class App:
         self.logical = pygame.Surface(LOGICAL_SIZE)
         self.clock = pygame.time.Clock()
         self.running = True
+        self._quit_confirm = False
         _reset_scene_singletons()
         self.game = new_game(seed if seed is not None else int.from_bytes(os.urandom(4)))
         self.gfx = SpriteFactory()
@@ -145,9 +146,26 @@ class App:
 
     def step(self, dt: float) -> None:
         events = pygame.event.get()
+        quit_confirmed = False
         for event in events:
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if not self._quit_confirm and event.key == pygame.K_ESCAPE:
+                    self._quit_confirm = True
+                elif self._quit_confirm:
+                    if event.key in (pygame.K_y, pygame.K_RETURN):
+                        quit_confirmed = True
+                    elif event.key in (pygame.K_n, pygame.K_ESCAPE):
+                        self._quit_confirm = False
+        if quit_confirmed:
+            self.running = False
+        if self._quit_confirm:
+            SCENES[self.game.scene].draw(self.logical, self.game, self.gfx, self.text)
+            self._draw_quit_overlay()
+            pygame.transform.scale(self.logical, self.window.get_size(), self.window)
+            pygame.display.flip()
+            return
         scene = SCENES[self.game.scene]
         commands = scene.commands(events, self.game, dt)
         game_events = self.game.tick(commands, dt)
@@ -168,6 +186,19 @@ class App:
         SCENES[self.game.scene].draw(self.logical, self.game, self.gfx, self.text)
         pygame.transform.scale(self.logical, self.window.get_size(), self.window)
         pygame.display.flip()
+
+    def _draw_quit_overlay(self) -> None:
+        box = pygame.Rect(0, 0, 260, 60)
+        box.center = (LOGICAL_SIZE[0] // 2, LOGICAL_SIZE[1] // 2)
+        pygame.draw.rect(self.logical, (14, 10, 38), box)
+        pygame.draw.rect(self.logical, (255, 214, 90), box, width=2)
+        self.text.draw(
+            self.logical,
+            "Quit Psychic Cleaners? (Y/N)",
+            (box.left + 18, box.top + 22),
+            size=16,
+            color=(230, 230, 230),
+        )
 
     def run(self) -> None:
         while self.running:
