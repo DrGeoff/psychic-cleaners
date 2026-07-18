@@ -14,6 +14,12 @@ from psychic_cleaners.shell.text import TextRenderer
 _NAME_MAX: Final[int] = 20
 _CODE_MAX: Final[int] = 7
 
+_HOW_TO_PLAY: Final[tuple[str, ...]] = (
+    "How to play: buy a vehicle & gear in the shop, then drive the city map to bust ghosts.",
+    "Map: arrows move, Enter travels. At the Depot: S buys snares, L/P take/repay a loan.",
+    "Drive: Up/Down change lanes. B baits Sir Squish (needs Mascot sensor + Gummy bait owned).",
+)
+
 KARAOKE_WORDS: Final[tuple[str, ...]] = (
     "WHEN",
     "THE",
@@ -147,6 +153,8 @@ class TitleScene:
         surface.fill((14, 10, 38))
         logo = gfx.get("logo")
         surface.blit(logo, ((surface.get_width() - logo.get_width()) // 2, 32))
+        for i, line in enumerate(_HOW_TO_PLAY):
+            text.draw(surface, line, (48, 136 + i * 14), size=13, color=(180, 180, 210))
         name_focused = self._focus is _Field.NAME
         self._draw_field(surface, text, "Name", self._name, 200, focused=name_focused)
         self._draw_field(surface, text, "Account code", self._code, 250, focused=not name_focused)
@@ -154,10 +162,16 @@ class TitleScene:
             text.draw(surface, game.notice, (110, 305), size=16, color=(255, 96, 96))
         text.draw(
             surface,
-            "Tab switches fields, Backspace deletes. Enter starts. "
-            "Blank code = new $10,000 franchise.",
-            (110, 340),
+            "Tab switches fields, Backspace deletes, Enter starts.",
+            (110, 336),
             size=14,
+            color=(160, 160, 190),
+        )
+        text.draw(
+            surface,
+            "Blank code = new $10,000 franchise; a past win's code resumes its bankroll.",
+            (110, 350),
+            size=13,
             color=(160, 160, 190),
         )
         _draw_karaoke(surface, text, self._elapsed)

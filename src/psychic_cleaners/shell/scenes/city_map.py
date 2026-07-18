@@ -21,7 +21,7 @@ from psychic_cleaners.core.events import (
 )
 from psychic_cleaners.core.game import Game
 from psychic_cleaners.shell.gfx import SpriteFactory
-from psychic_cleaners.shell.scenes import _NOTICE_RED, _draw_mascot_banner
+from psychic_cleaners.shell.scenes import _NOTICE_RED, _bait_control_hint, _draw_mascot_banner
 from psychic_cleaners.shell.text import TextRenderer
 
 _CELL: int = 56
@@ -30,7 +30,6 @@ _ORIGIN_Y: int = 12
 _HUD_Y: int = 356
 _CAR_MARKER: tuple[int, int, int] = (250, 250, 250)
 _CAR_MARKER_OUTLINE: tuple[int, int, int] = (30, 30, 40)
-_CONTROL_HINT: str = "Arrows: move cursor - Enter: travel - B: bait"
 
 
 def _cell_rect(pos: GridPos) -> pygame.Rect:
@@ -162,12 +161,17 @@ class CityMapScene:
         text.draw(surface, snares, (240, _HUD_Y + 4), size=16)
         text.draw(surface, f"contained {game.contained}", (240, _HUD_Y + 18), size=16)
         text.draw(surface, f"slimed {len(game.slimed)}", (430, _HUD_Y + 4), size=16)
-        if game.position == DEPOT_POS:
-            hint = f"S: snare (${ITEMS['snare'].price}) L: loan P: repay"
-            text.draw(surface, hint, (300, _HUD_Y + 18), size=14)
         if game.notice is not None:
             text.draw(surface, game.notice, (10, _HUD_Y + 32), size=16, color=_NOTICE_RED)
+        elif game.position == DEPOT_POS:
+            # Takes priority over the generic control hint below: this is the
+            # one row with room for it, and it was previously drawn at
+            # (300, _HUD_Y + 18) where it silently overlapped "contained N"
+            # into unreadable text — nobody could ever see it.
+            hint = f"S: snare (${ITEMS['snare'].price}) L: loan P: repay"
+            text.draw(surface, hint, (10, _HUD_Y + 32), size=16)
         else:
             # A first-time player never trips a notice, so this row would
             # otherwise stay blank for the whole game.
-            text.draw(surface, _CONTROL_HINT, (10, _HUD_Y + 32), size=16)
+            hint = f"Arrows: move cursor - Enter: travel - {_bait_control_hint(game)}"
+            text.draw(surface, hint, (10, _HUD_Y + 32), size=16)

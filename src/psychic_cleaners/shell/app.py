@@ -179,5 +179,7 @@ def main() -> None:
     app = App()
     try:
         app.run()
+    except KeyboardInterrupt:
+        pass
     finally:
         pygame.quit()

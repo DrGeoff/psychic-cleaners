@@ -57,3 +57,22 @@ def _draw_mascot_banner(surface: pygame.Surface, game: Game, text: TextRenderer)
     charges = game.loadout.bait_charges if game.loadout is not None else 0
     banner = f"MASCOT INBOUND — B: BAIT ({charges} left)"
     text.draw(surface, banner, (150, 8), size=20, color=(255, 96, 96))
+
+
+def _bait_control_hint(game: Game) -> str:
+    """ "B: bait" control text, or an explanation of what's still missing.
+
+    Deploying bait needs BOTH the Mascot sensor (to ever see an alert
+    instead of an unwarned stomp) and Gummy bait charges — without both,
+    pressing B silently does nothing, so the always-on hint must say why.
+    """
+    has_sensor = game.loadout is not None and game.loadout.has("sensor")
+    has_bait = game.loadout is not None and game.loadout.bait_charges > 0
+    if has_sensor and has_bait:
+        return "B: bait"
+    missing = []
+    if not has_sensor:
+        missing.append("sensor")
+    if not has_bait:
+        missing.append("bait")
+    return f"B: bait (buy {' + '.join(missing)} at the shop first)"
