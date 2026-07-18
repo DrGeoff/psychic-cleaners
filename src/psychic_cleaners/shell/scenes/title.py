@@ -163,14 +163,14 @@ class TitleScene:
         text.draw(
             surface,
             "Tab switches fields, Backspace deletes, Enter starts.",
-            (110, 336),
+            (110, 344),
             size=14,
             color=(160, 160, 190),
         )
         text.draw(
             surface,
             "Blank code = new $10,000 franchise; a past win's code resumes its bankroll.",
-            (110, 350),
+            (110, 358),
             size=13,
             color=(160, 160, 190),
         )
